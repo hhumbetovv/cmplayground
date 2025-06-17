@@ -1,11 +1,11 @@
 @file:Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 
-package az.theternal.cmplayground.shared
+package az.theternal.common.utils
 
-import platform.Foundation.NSLog
+import android.util.Log
 
 actual object Logger {
     actual fun d(message: Any) {
-        NSLog("[Native Logger]: $message")
+        Log.d("Native Logger", message.toString())
     }
 }

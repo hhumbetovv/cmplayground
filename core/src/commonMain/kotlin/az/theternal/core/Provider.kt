@@ -8,7 +8,6 @@ data class Provider<Intent : ViewIntent, State : ViewState>(
     val postIntent: (Intent) -> Unit = {},
 ) {
     val state: StateFlow<State>
-        @Throws(ProviderNotFoundError::class)
         get() {
             if(_state == null) {
                 throw ProviderNotFoundError()

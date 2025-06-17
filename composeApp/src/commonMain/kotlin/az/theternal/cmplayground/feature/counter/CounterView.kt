@@ -20,7 +20,7 @@ import az.theternal.cmplayground.feature.counter.CounterContract.State
 import az.theternal.cmplayground.feature.counter.components.CountText
 import az.theternal.cmplayground.feature.counter.components.DecreaseButton
 import az.theternal.cmplayground.feature.counter.components.IncreaseButton
-import az.theternal.cmplayground.shared.Logger
+import az.theternal.common.utils.Logger
 import az.theternal.core.BaseComposable
 import az.theternal.core.Provider
 import az.theternal.core.select
@@ -30,9 +30,10 @@ val CounterProvider = compositionLocalOf { Provider<Intent, State>() }
 
 @Composable
 fun <Result> ProvidableCompositionLocal<Provider<Intent, State>>.select(
+    initial: Result,
     transform: (State) -> Result
 ): Result {
-    return current.state.select(transform)
+    return current.state.select(initial,transform)
 }
 
 @Composable

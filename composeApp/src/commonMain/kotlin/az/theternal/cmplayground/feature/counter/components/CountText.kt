@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
 @Composable
 fun CountText() {
 
-    val count = CounterProvider.select { it.count }
+    val count = CounterProvider.select(0) { it.count }
 
     Text(
         count.toString(),

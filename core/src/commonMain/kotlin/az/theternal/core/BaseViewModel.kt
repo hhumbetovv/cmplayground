@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import az.theternal.common.utils.Logger
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,6 +46,7 @@ abstract class BaseViewModel<Intent: ViewIntent, State: ViewState, Effect: ViewE
 
     //! Initializers
     init {
+        Logger.d("ViewModel Created: ${this::class.simpleName}")
         _uiIntent.onEach { intent ->
             onIntentUpdate(intent)
         }.launchIn(viewModelScope)
@@ -74,11 +76,13 @@ abstract class BaseViewModel<Intent: ViewIntent, State: ViewState, Effect: ViewE
     protected open fun onIntentUpdate(intent: Intent) {}
 }
 
+
 @Composable
 fun <State, Result> StateFlow<State>.select(
+    initial: Result,
     transform: (State) -> Result,
 ): Result {
     return map(transform)
-        .collectAsStateWithLifecycle(null)
-        .value!!
+        .collectAsStateWithLifecycle(initialValue = initial)
+        .value
 }
