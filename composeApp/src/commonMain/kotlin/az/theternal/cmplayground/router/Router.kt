@@ -1,13 +1,15 @@
 package az.theternal.cmplayground.router
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import az.theternal.cmplayground.feature.product.domain.entities.dummyProducts
 import az.theternal.cmplayground.feature.product.presentation.details.ProductDetailsView
 import az.theternal.cmplayground.feature.product.presentation.list.ProductListView
+import az.theternal.cmplayground.router.extensions.animatedScopeComposable
 
 @Composable
 fun Router() {
@@ -15,10 +17,11 @@ fun Router() {
 
     NavHost(
         navController = navController,
-        startDestination = Route.ProductList
+        startDestination = Route.ProductList,
+        modifier = Modifier.fillMaxSize()
     ) {
 
-        composable<Route.ProductList> {
+        animatedScopeComposable<Route.ProductList> {
             ProductListView(
                 onNavigateDetails = { itemId ->
                     navController.navigate(
@@ -28,7 +31,7 @@ fun Router() {
             )
         }
 
-        composable<Route.ProductDetails> { entry ->
+        animatedScopeComposable<Route.ProductDetails> { entry ->
             val route = entry.toRoute<Route.ProductDetails>()
 
             ProductDetailsView(

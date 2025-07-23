@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalSharedTransitionApi::class)
+
 package az.theternal.cmplayground.feature.product.presentation.list.components
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +24,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.feature.product.domain.entities.ProductEntity
+import az.theternal.cmplayground.ui.modifiers.sharedBounds
 import coil3.compose.SubcomposeAsyncImage
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
@@ -39,17 +43,18 @@ fun ProductListItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         SubcomposeAsyncImage(
+            modifier = Modifier
+                .sharedBounds("photo_${item.id}")
+                .size(72.dp)
+                .clip(
+                    shape = RoundedCornerShape(12.dp)
+                ),
             model = item.photoUrl,
             contentDescription = item.title,
             loading = {
                 CircularProgressIndicator(Modifier.requiredSize(42.dp))
             },
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(72.dp)
-                .clip(
-                    shape = RoundedCornerShape(12.dp)
-                )
         )
 
         Spacer(Modifier.width(8.dp))
@@ -57,13 +62,17 @@ fun ProductListItem(
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            Text(item.title)
+            Text(
+                modifier = Modifier.sharedBounds("title_${item.id}"),
+                text = item.title,
+            )
 
             Text(
-                item.description,
+                modifier = Modifier.sharedBounds("desc_${item.id}"),
+                text = item.description,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 3,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

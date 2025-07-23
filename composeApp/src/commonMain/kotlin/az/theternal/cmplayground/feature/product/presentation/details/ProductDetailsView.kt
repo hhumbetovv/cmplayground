@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalSharedTransitionApi::class)
+
 package az.theternal.cmplayground.feature.product.presentation.details
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -17,8 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.feature.product.domain.entities.ProductEntity
+import az.theternal.cmplayground.ui.modifiers.sharedBounds
 import coil3.compose.AsyncImage
-import coil3.compose.SubcomposeAsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,7 +33,12 @@ fun ProductDetailsView(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(item.title) },
+                    title = {
+                        Text(
+                            modifier = Modifier.sharedBounds("title_${item.id}"),
+                            text = item.title
+                        )
+                    },
                 )
             }
         ) { padding ->
@@ -41,6 +49,7 @@ fun ProductDetailsView(
             ) {
                 AsyncImage(
                     modifier = Modifier
+                        .sharedBounds("photo_${item.id}")
                         .fillMaxWidth()
                         .aspectRatio(1f)
                         .clip(RoundedCornerShape(20.dp)),
@@ -51,7 +60,11 @@ fun ProductDetailsView(
 
                 Spacer(Modifier.height(16.dp))
 
-                Text(item.description)
+                Text(
+                    modifier = Modifier
+                        .sharedBounds("desc_${item.id}"),
+                    text = item.description,
+                )
             }
         }
     }
