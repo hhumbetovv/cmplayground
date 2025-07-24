@@ -21,51 +21,49 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.feature.product.domain.entities.ProductEntity
 import az.theternal.cmplayground.ui.modifiers.sharedBounds
+import az.theternal.cmplayground.ui.modifiers.sharedElement
 import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailsView(
-    item: ProductEntity?
+    item: ProductEntity
 ) {
-    item?.let {
-
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            modifier = Modifier.sharedBounds("title_${item.id}"),
-                            text = item.title
-                        )
-                    },
-                )
-            }
-        ) { padding ->
-            Column(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        modifier = Modifier.sharedBounds("title_${item.id}"),
+                        text = item.title
+                    )
+                },
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+        ) {
+            AsyncImage(
                 modifier = Modifier
-                    .padding(padding)
-                    .padding(horizontal = 16.dp)
-            ) {
-                AsyncImage(
-                    modifier = Modifier
-                        .sharedBounds("photo_${item.id}")
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(20.dp)),
-                    model = item.photoUrl,
-                    contentDescription = item.title,
-                    contentScale = ContentScale.Crop
-                )
+                    .sharedElement("photo_${item.id}")
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(20.dp)),
+                model = item.photoUrl,
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop
+            )
 
-                Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-                Text(
-                    modifier = Modifier
-                        .sharedBounds("desc_${item.id}"),
-                    text = item.description,
-                )
-            }
+            Text(
+                modifier = Modifier
+                    .sharedBounds("desc_${item.id}"),
+                text = item.description,
+            )
         }
     }
 }

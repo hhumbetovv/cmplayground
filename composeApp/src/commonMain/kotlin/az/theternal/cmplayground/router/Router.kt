@@ -34,11 +34,19 @@ fun Router() {
         animatedScopeComposable<Route.ProductDetails> { entry ->
             val route = entry.toRoute<Route.ProductDetails>()
 
-            ProductDetailsView(
-                item = dummyProducts.firstOrNull {
-                    it.id == route.itemId
-                }
-            )
+            val item = dummyProducts.firstOrNull {
+                it.id == route.itemId
+            }
+
+            if (item != null) {
+                ProductDetailsView(
+                    item = item
+                )
+            } else {
+                // Error Screen
+            }
+
+
         }
 
     }

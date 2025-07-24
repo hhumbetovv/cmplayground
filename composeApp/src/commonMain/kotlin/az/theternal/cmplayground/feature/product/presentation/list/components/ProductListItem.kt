@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.feature.product.domain.entities.ProductEntity
 import az.theternal.cmplayground.ui.modifiers.sharedBounds
+import az.theternal.cmplayground.ui.modifiers.sharedElement
 import coil3.compose.SubcomposeAsyncImage
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
@@ -44,7 +45,7 @@ fun ProductListItem(
     ) {
         SubcomposeAsyncImage(
             modifier = Modifier
-                .sharedBounds("photo_${item.id}")
+                .sharedElement("photo_${item.id}")
                 .size(72.dp)
                 .clip(
                     shape = RoundedCornerShape(12.dp)
