@@ -20,7 +20,6 @@ fun Router() {
         startDestination = Route.ProductList,
         modifier = Modifier.fillMaxSize()
     ) {
-
         animatedScopeComposable<Route.ProductList> {
             ProductListView(
                 onNavigateDetails = { itemId ->
@@ -45,7 +44,6 @@ fun Router() {
             } else {
                 // Error Screen
             }
-
 
         }
 

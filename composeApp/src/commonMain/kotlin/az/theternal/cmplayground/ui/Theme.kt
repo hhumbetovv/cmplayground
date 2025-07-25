@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import az.theternal.cmplayground.ui.utils.noLocalProvidedFor
 
 @Composable
 fun AppTheme(
@@ -28,9 +29,10 @@ fun AppTheme(
 }
 
 val LocalSharedTransitionScope = compositionLocalOf <SharedTransitionScope> {
-    error("CompositionLocal SharedTransitionScope not present")
+    noLocalProvidedFor("SharedTransitionScope")
 }
 
 val LocalAnimatedVisibilityScope = compositionLocalOf <AnimatedVisibilityScope> {
-    error("CompositionLocal AnimatedVisibilityScope not present")
+    noLocalProvidedFor("AnimatedVisibilityScope")
 }
+
