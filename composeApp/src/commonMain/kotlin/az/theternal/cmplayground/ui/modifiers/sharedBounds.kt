@@ -10,6 +10,7 @@ import androidx.compose.animation.SharedTransitionScope.PlaceHolderSize
 import androidx.compose.animation.SharedTransitionScope.PlaceHolderSize.Companion.contentSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.platform.LocalInspectionMode
 import az.theternal.cmplayground.ui.LocalAnimatedVisibilityScope
 import az.theternal.cmplayground.ui.LocalSharedTransitionScope
 
@@ -21,6 +22,11 @@ fun Modifier.sharedBounds(
     zIndexInOverlay: Float = 0f,
     clipInOverlayDuringTransition: OverlayClip = ParentClip,
 ) = composed {
+
+    if(LocalInspectionMode.current) {
+        return@composed this
+    }
+
     with(LocalSharedTransitionScope.current) {
         sharedBounds(
             sharedContentState = rememberSharedContentState(key),

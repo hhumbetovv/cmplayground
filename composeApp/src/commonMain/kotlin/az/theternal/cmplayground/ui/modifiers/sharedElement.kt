@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import az.theternal.cmplayground.ui.LocalAnimatedVisibilityScope
@@ -29,6 +30,11 @@ fun Modifier.sharedElement(
     zIndexInOverlay: Float = 0f,
     clipInOverlayDuringTransition: OverlayClip = ParentClip,
 ) = composed {
+
+    if(LocalInspectionMode.current) {
+        return@composed this
+    }
+
     with(LocalSharedTransitionScope.current) {
         sharedElement(
             sharedContentState = rememberSharedContentState(key),

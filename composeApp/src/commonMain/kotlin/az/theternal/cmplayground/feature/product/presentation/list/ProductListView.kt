@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.feature.product.domain.entities.dummyProducts
 import az.theternal.cmplayground.feature.product.presentation.list.components.ProductListItem
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 fun ProductListView(
@@ -35,4 +36,12 @@ fun ProductListView(
             }
         }
     }
+}
+
+@Preview
+@Composable
+private fun ProductListPreview() {
+    ProductListView(
+        onNavigateDetails = {}
+    )
 }

@@ -20,9 +20,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.feature.product.domain.entities.ProductEntity
+import az.theternal.cmplayground.feature.product.domain.entities.dummyProducts
 import az.theternal.cmplayground.ui.modifiers.sharedBounds
 import az.theternal.cmplayground.ui.modifiers.sharedElement
 import coil3.compose.AsyncImage
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,4 +68,12 @@ fun ProductDetailsView(
             )
         }
     }
+}
+
+@Preview
+@Composable
+private fun ProductDetailsPreview() {
+    ProductDetailsView(
+        item = dummyProducts[0]
+    )
 }
