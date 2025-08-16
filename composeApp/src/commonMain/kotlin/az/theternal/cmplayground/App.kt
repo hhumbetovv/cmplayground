@@ -1,44 +1,100 @@
 package az.theternal.cmplayground
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import org.jetbrains.compose.resources.painterResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import az.theternal.cmplayground.snackbar.config.SnackbarConfig
+import az.theternal.cmplayground.snackbar.config.SnackbarContent
+import az.theternal.cmplayground.snackbar.config.SnackbarHostProvider
+import az.theternal.cmplayground.snackbar.manager.SnackbarAlign
+import az.theternal.cmplayground.snackbar.manager.SnackbarData
 import org.jetbrains.compose.ui.tooling.preview.Preview
-
-import cmplayground.composeapp.generated.resources.Res
-import cmplayground.composeapp.generated.resources.compose_multiplatform
 
 @Composable
 @Preview
 fun App() {
     MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
-        Column(
-            modifier = Modifier
-                .safeContentPadding()
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Button(onClick = { showContent = !showContent }) {
-                Text("Click me!")
-            }
-            AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
+        SnackbarHostProvider(
+            config = object : SnackbarConfig() {
+                override val snackbarContent: SnackbarContent = { data, isVisible ->
+                    CustomizedSnackbar(data, isVisible)
                 }
+
+
             }
+        ) {
+            ExampleScreen()
+        }
+    }
+}
+
+@Composable
+fun BoxScope.CustomizedSnackbar(
+    data: SnackbarData,
+    isVisible: Boolean
+) {
+
+    val offSet: (Int) -> Int = {
+        when (data.align) {
+            SnackbarAlign.TOP -> -it
+            SnackbarAlign.BOTTOM -> it
+        }
+    }
+
+    val alignment = when(data.align) {
+        SnackbarAlign.TOP -> Alignment.TopCenter
+        SnackbarAlign.BOTTOM -> Alignment.BottomCenter
+    }
+
+    val safePadding = when(data.align) {
+        SnackbarAlign.TOP -> Modifier.statusBarsPadding()
+        SnackbarAlign.BOTTOM -> Modifier.navigationBarsPadding()
+    }
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = slideInVertically(
+            initialOffsetY = offSet,
+            animationSpec = tween(500)
+        ),
+        exit = slideOutVertically(
+            targetOffsetY = offSet,
+            animationSpec = tween(500)
+        ),
+        modifier = Modifier
+            .align(alignment)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(data.color)
+                .then(safePadding)
+                .padding(
+                    horizontal = 20.dp,
+                    vertical = 16.dp
+                )
+        ) {
+            Text(
+                text = data.message,
+                color = Color.White,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
