@@ -19,7 +19,7 @@ fun BottomSheetScope.ExampleBottomSheet() {
             modifier = Modifier.padding(42.dp)
         ) {
             Text(
-                text = "Bottom Sheet content",
+                text = "Close Sheet",
             )
         }
     }
