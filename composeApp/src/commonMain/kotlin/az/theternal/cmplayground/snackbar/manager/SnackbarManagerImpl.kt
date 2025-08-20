@@ -12,8 +12,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-private const val DEFAULT_SNACKBAR_DURATION = 2000L
-
 class SnackbarManagerImpl() : SnackbarManager {
     private var _currentSnackbar = mutableStateOf<SnackbarData?>(null)
     override val currentSnackbar: State<SnackbarData?> = _currentSnackbar
@@ -44,7 +42,7 @@ class SnackbarManagerImpl() : SnackbarManager {
         _isVisible.value = true
 
         dismissJob = CoroutineScope(Dispatchers.Main).launch {
-            delay(DEFAULT_SNACKBAR_DURATION)
+            delay(data.durationMillis)
             dismiss()
         }
     }
