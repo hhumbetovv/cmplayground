@@ -15,8 +15,9 @@ A Compose Multiplatform sample that turns your SVG assets into a ready-to-use Op
 
 ```kotlin
 UiIcon(
-    icon = IconData.Search,
-    contentDescription = "Search",
+    icon = IconData.SEARCH,
+    color = Color.Red,
+    size = 24.dp
 )
 ```
 
