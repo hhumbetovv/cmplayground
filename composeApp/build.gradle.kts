@@ -1,6 +1,8 @@
+import iconfont.GenerateIconFontTask
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -81,3 +83,27 @@ dependencies {
     debugImplementation(compose.uiTooling)
 }
 
+val generateIconFont = tasks.register<GenerateIconFontTask>("generateIconFont") {
+    inputDir.set(layout.projectDirectory.dir("icon-font/svg"))
+    fontOutputFile.set(layout.projectDirectory.file("src/commonMain/composeResources/font/icons.otf"))
+    kotlinOutputFile.set(layout.buildDirectory.file("generated/iconFont/IconData.kt"))
+    fontName.set("CM Icons")
+    fontStyle.set("Regular")
+    kotlinPackage.set("az.theternal.cmplayground")
+    enumClassName.set("IconData")
+}
+
+kotlin.sourceSets.named("commonMain") {
+    kotlin.srcDir(generateIconFont.map { it.kotlinOutputFile.get().asFile.parentFile })
+}
+
+tasks.withType<AbstractKotlinCompile<*>>().configureEach {
+    dependsOn(generateIconFont)
+}
+
+tasks.matching { task ->
+    task.name.startsWith("prepareComposeResourcesTaskFor") ||
+        task.name.startsWith("copyNonXmlValueResourcesFor")
+}.configureEach {
+    dependsOn(generateIconFont)
+}
