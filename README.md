@@ -45,22 +45,25 @@ fun App() {
 
 ### Showing Snackbars
 
-To show a snackbar from any composable:
+`showSnackbar` is a suspend function, so trigger it from a coroutine scope (e.g., `rememberCoroutineScope()`).
 
 ```kotlin
 @Composable
 fun MyScreen() {
   val snackbarManager = LocalSnackbarManager.current
+  val coroutineScope = rememberCoroutineScope()
 
   Button(
     onClick = {
-      snackbarManager.showSnackbar(
-        SnackbarData(
-          message = "Operation successful!",
-          color = Color.Green,
-          align = SnackbarAlign.BOTTOM
+      coroutineScope.launch {
+        snackbarManager.showSnackbar(
+          SnackbarData(
+            message = "Operation successful!",
+            color = Color.Green,
+            align = SnackbarAlign.BOTTOM
+          )
         )
-      )
+      }
     }
   ) {
     Text("Show Success Snackbar")
@@ -73,46 +76,52 @@ fun MyScreen() {
 ### Simple Snackbar
 
 ```kotlin
-snackbarManager.showSnackbar(
-  SnackbarData(
-    message = "An error occurred!",
-    color = Color.Red,
-    align = SnackbarAlign.TOP
+coroutineScope.launch {
+  snackbarManager.showSnackbar(
+    SnackbarData(
+      message = "An error occurred!",
+      color = Color.Red,
+      align = SnackbarAlign.TOP
+    )
   )
-)
+}
 ```
 
 ### Snackbar with Action Button
 
 ```kotlin
-snackbarManager.showSnackbar(
-  SnackbarData(
-    message = "File deleted",
-    color = Color.Orange,
-    action = {
-      TextButton(
-        onClick = { /* Undo action */ }
-      ) {
-        Text("UNDO", color = Color.White)
+coroutineScope.launch {
+  snackbarManager.showSnackbar(
+    SnackbarData(
+      message = "File deleted",
+      color = Color.Orange,
+      action = {
+        TextButton(
+          onClick = { /* Undo action */ }
+        ) {
+          Text("UNDO", color = Color.White)
+        }
       }
-    }
+    )
   )
-)
+}
 ```
 
 ### Snackbar with Dismiss Callback
 
 ```kotlin
-snackbarManager.showSnackbar(
-  SnackbarData(
-    message = "Task completed",
-    color = Color.Green,
-    onDismiss = {
-      println("Snackbar was dismissed!")
-      // Perform cleanup or additional actions
-    }
+coroutineScope.launch {
+  snackbarManager.showSnackbar(
+    SnackbarData(
+      message = "Task completed",
+      color = Color.Green,
+      onDismiss = {
+        println("Snackbar was dismissed!")
+        // Perform cleanup or additional actions
+      }
+    )
   )
-)
+}
 ```
 
 ### Custom Snackbar Design
@@ -144,9 +153,12 @@ To manually dismiss the current snackbar:
 
 ```kotlin
 val snackbarManager = LocalSnackbarManager.current
+val coroutineScope = rememberCoroutineScope()
 
 // Dismiss current snackbar
-snackbarManager.dismiss()
+coroutineScope.launch {
+  snackbarManager.dismiss()
+}
 ```
 
 ### Advanced Usage
@@ -155,17 +167,19 @@ snackbarManager.dismiss()
 
 ```kotlin
 // Show multiple snackbars - they will be queued automatically
-repeat(3) { index ->
-  snackbarManager.showSnackbar(
-    SnackbarData(
-      message = "Message ${index + 1}",
-      color = when (index) {
-        0 -> Color.Red
-        1 -> Color.Blue
-        else -> Color.Green
-      }
+coroutineScope.launch {
+  repeat(3) { index ->
+    snackbarManager.showSnackbar(
+      SnackbarData(
+        message = "Message ${index + 1}",
+        color = when (index) {
+          0 -> Color.Red
+          1 -> Color.Blue
+          else -> Color.Green
+        }
+      )
     )
-  )
+  }
 }
 ```
 
@@ -200,8 +214,8 @@ interface SnackbarManager {
   val currentSnackbar: State<SnackbarData?>  // Currently displayed snackbar
   val isVisible: State<Boolean>              // Visibility state
 
-  fun showSnackbar(data: SnackbarData)       // Show a snackbar
-  fun dismiss()                              // Dismiss current snackbar
+  suspend fun showSnackbar(data: SnackbarData) // Show a snackbar
+  suspend fun dismiss()                        // Dismiss current snackbar
 }
 ```
 

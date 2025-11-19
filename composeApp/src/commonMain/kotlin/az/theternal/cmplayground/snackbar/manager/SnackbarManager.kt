@@ -12,7 +12,7 @@ interface SnackbarManager {
 
     val isVisible: State<Boolean>
 
-    fun showSnackbar(data: SnackbarData)
+    suspend fun showSnackbar(data: SnackbarData)
 
-    fun dismiss()
+    suspend fun dismiss()
 }
