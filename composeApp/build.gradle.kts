@@ -43,6 +43,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.navigation3.ui)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -80,4 +81,3 @@ android {
 dependencies {
     debugImplementation(compose.uiTooling)
 }
-

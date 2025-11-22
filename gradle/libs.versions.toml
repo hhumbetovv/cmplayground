@@ -4,15 +4,17 @@ android-compileSdk = "36"
 android-minSdk = "28"
 android-targetSdk = "36"
 androidx-activity = "1.10.1"
-androidx-lifecycle = "2.9.0"
-composeMultiplatform = "1.8.1"
-kotlin = "2.1.21"
+androidx-lifecycle = "2.10.0-alpha04+dev3147"
+androidx-nav3 = "1.0.0-alpha04+dev3147"
+composeMultiplatform = "1.10.0-alpha04+dev3147"
+kotlin = "2.2.21"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
+navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "androidx-nav3" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
