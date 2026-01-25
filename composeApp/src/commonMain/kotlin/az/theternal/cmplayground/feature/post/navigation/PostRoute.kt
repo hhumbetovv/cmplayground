@@ -6,7 +6,13 @@ import kotlinx.serialization.Serializable
 sealed interface PostRoute : NavKey {
 
     @Serializable
-    data object List : PostRoute
+    data object List : PostRoute {
+        sealed interface Result {
+            data class ItemClicked(
+                val itemId: String,
+            )
+        }
+    }
 
     @Serializable
     data class Details(

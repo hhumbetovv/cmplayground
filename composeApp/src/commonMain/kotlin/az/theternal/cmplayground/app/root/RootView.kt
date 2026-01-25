@@ -12,6 +12,7 @@ import az.theternal.cmplayground.app.root.RootContract.Intent
 import az.theternal.cmplayground.core.navigation.common.EmptyRoute
 import az.theternal.cmplayground.core.navigation.common.NavAnimations
 import az.theternal.cmplayground.core.navigation.navigator.NavigatorProvider
+import az.theternal.cmplayground.core.navigation.result.ResultManagerProvider
 import az.theternal.cmplayground.feature.auth.navigation.authGraph
 import az.theternal.cmplayground.feature.post.navigation.postGraph
 
@@ -21,30 +22,32 @@ fun RootView(
 ) {
     val state by viewModel.viewState.collectAsStateWithLifecycle()
 
-    NavigatorProvider(
-        navigator = RootNavigator(
-            stack = state.backStack,
-            buildRootStack = {
-                viewModel.postIntent(Intent.UpdateBackStack(it))
-            }
-        )
-    ) {
-        NavDisplay(
-            onBack = {
-                viewModel.postIntent(
-                    Intent.UpdateBackStack { removeLastOrNull() }
-                )
-            },
-            backStack = state.backStack,
-            transitionSpec = NavAnimations.defaultPushTransition(),
-            popTransitionSpec = NavAnimations.defaultPopTransition(),
-            predictivePopTransitionSpec = NavAnimations.defaultPredictivePopTransition(),
-            entryProvider = entryProvider {
-                authGraph()
-                postGraph()
+    ResultManagerProvider {
+        NavigatorProvider(
+            navigator = RootNavigator(
+                stack = state.backStack,
+                buildRootStack = {
+                    viewModel.postIntent(Intent.UpdateBackStack(it))
+                }
+            )
+        ) {
+            NavDisplay(
+                onBack = {
+                    viewModel.postIntent(
+                        Intent.UpdateBackStack { removeLastOrNull() }
+                    )
+                },
+                backStack = state.backStack,
+                transitionSpec = NavAnimations.defaultPushTransition(),
+                popTransitionSpec = NavAnimations.defaultPopTransition(),
+                predictivePopTransitionSpec = NavAnimations.defaultPredictivePopTransition(),
+                entryProvider = entryProvider {
+                    authGraph()
+                    postGraph()
 
-                entry<EmptyRoute> { }
-            }
-        )
+                    entry<EmptyRoute> { }
+                }
+            )
+        }
     }
 }
