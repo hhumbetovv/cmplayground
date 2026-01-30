@@ -14,6 +14,10 @@ kotlin {
 
     }
 
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-parameters")
+    }
+
     listOf(
         iosX64(),
         iosArm64(),

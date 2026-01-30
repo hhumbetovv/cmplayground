@@ -1,8 +1,8 @@
 package az.theternal.cmplayground.feature.counter
 
-import az.theternal.core.ViewEffect
-import az.theternal.core.ViewIntent
-import az.theternal.core.ViewState
+import az.theternal.core.framework.delegates.ViewEffect
+import az.theternal.core.framework.delegates.ViewIntent
+import az.theternal.core.framework.delegates.ViewState
 
 
 sealed interface CounterContract {
