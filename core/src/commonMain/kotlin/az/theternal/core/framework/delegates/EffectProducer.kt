@@ -1,8 +1,6 @@
 package az.theternal.core.framework.delegates
 
-import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -16,44 +14,43 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-// EffectProducer - EffectEmitter
 
 interface ViewEffect
 
 interface EffectProducer<Effect : ViewEffect>{
-    val effectEmitter: EffectEmitter<Effect>
+    val effectDelegate: EffectDelegate<Effect>
 
     fun sendEffect(effect: Effect) {
-        effectEmitter.sendEffect(effect)
+        effectDelegate.sendEffect(effect)
     }
 }
 
-class EffectEmitter<Effect : ViewEffect> internal constructor(
+class EffectDelegate<Effect : ViewEffect> internal constructor(
     private val scope: CoroutineScope,
 ) : AutoCloseable {
-    private val _viewEffect = Channel<Effect>()
-    val viewEffect: Flow<Effect> = _viewEffect.receiveAsFlow()
+    private val _effects = Channel<Effect>()
+    val effects: Flow<Effect> = _effects.receiveAsFlow()
 
     fun sendEffect(effect: Effect) {
         scope.launch {
-            _viewEffect.send(effect)
+            _effects.send(effect)
         }
     }
 
     override fun close() {
-        _viewEffect.close()
+        _effects.close()
     }
 }
 
 context(viewModel: ViewModel)
-fun <Effect : ViewEffect> EffectProducer<Effect>.EffectEmitter(): EffectEmitter<Effect> {
-    val emitter =  EffectEmitter<Effect>(
+fun <Effect : ViewEffect> EffectProducer<Effect>.EffectDelegate(): EffectDelegate<Effect> {
+    val delegate =  EffectDelegate<Effect>(
         scope = viewModel.viewModelScope
     )
 
-    viewModel.addCloseable(emitter)
+    viewModel.addCloseable(delegate)
 
-    return emitter
+    return delegate
 }
 
 context(viewModel: ViewModel)
@@ -61,12 +58,12 @@ fun <Effect : ViewEffect> EffectProducer<Effect>.sendEffect(
     effect: Effect
 ) {
     viewModel.viewModelScope.launch {
-        effectEmitter.sendEffect(effect)
+        effectDelegate.sendEffect(effect)
     }
 }
 
-@Composable
 context(viewModel: ViewModel)
+@Composable
 fun <Effect: ViewEffect> EffectProducer<Effect>.OnEffectUpdate(
     collector: FlowCollector<Effect>
 ) {
@@ -74,7 +71,7 @@ fun <Effect: ViewEffect> EffectProducer<Effect>.OnEffectUpdate(
 
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            effectEmitter.viewEffect.collect(collector)
+            effectDelegate.effects.collect(collector)
         }
     }
 }

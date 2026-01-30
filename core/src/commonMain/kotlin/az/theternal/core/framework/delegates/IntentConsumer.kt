@@ -10,13 +10,13 @@ import kotlinx.coroutines.launch
 
 interface ViewIntent
 
-interface IntentHandler<Intent : ViewIntent> {
-    val intentProcessor: IntentProcessor<Intent>
+interface IntentConsumer<Intent : ViewIntent> {
+    val intentDelegate: IntentDelegate<Intent>
 
-    fun postIntent(newIntent: Intent) = intentProcessor::postIntent
+    fun postIntent(newIntent: Intent) = intentDelegate::postIntent
 }
 
-class IntentProcessor<Intent : ViewIntent> internal constructor(
+class IntentDelegate<Intent : ViewIntent> internal constructor(
     private val scope: CoroutineScope,
     onIntent: (Intent) -> Unit,
 ) {
@@ -35,10 +35,10 @@ class IntentProcessor<Intent : ViewIntent> internal constructor(
 }
 
 context(viewModel: ViewModel)
-fun <Intent : ViewIntent> IntentHandler<Intent>.IntentProcessor(
+fun <Intent : ViewIntent> IntentConsumer<Intent>.IntentDelegate(
     onIntent: (Intent) -> Unit,
-): IntentProcessor<Intent> {
-    return IntentProcessor(
+): IntentDelegate<Intent> {
+    return IntentDelegate(
         scope = viewModel.viewModelScope,
         onIntent = onIntent,
     )

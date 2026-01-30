@@ -2,22 +2,22 @@ package az.theternal.cmplayground.feature.counter
 
 import androidx.lifecycle.ViewModel
 import az.theternal.cmplayground.feature.counter.CounterContract.*
-import az.theternal.core.framework.delegates.EffectEmitter
+import az.theternal.core.framework.delegates.EffectDelegate
 import az.theternal.core.framework.delegates.EffectProducer
-import az.theternal.core.framework.delegates.IntentHandler
-import az.theternal.core.framework.delegates.IntentProcessor
-import az.theternal.core.framework.delegates.StateHolder
-import az.theternal.core.framework.delegates.StateStore
+import az.theternal.core.framework.delegates.IntentConsumer
+import az.theternal.core.framework.delegates.IntentDelegate
+import az.theternal.core.framework.delegates.StateProvider
+import az.theternal.core.framework.delegates.StateDelegate
 import az.theternal.core.framework.delegates.currentState
 import az.theternal.core.framework.delegates.sendEffect
 import az.theternal.core.framework.delegates.setState
 
-class CounterViewModel : ViewModel(), EffectProducer<Effect>, IntentHandler<Intent>, StateHolder<State> {
+class CounterViewModel : ViewModel(), EffectProducer<Effect>, IntentConsumer<Intent>, StateProvider<State> {
 
-    override val stateStore: StateStore<State> = StateStore { State() }
-    override val effectEmitter: EffectEmitter<Effect> = EffectEmitter()
+    override val stateDelegate: StateDelegate<State> = StateDelegate { State() }
+    override val effectDelegate: EffectDelegate<Effect> = EffectDelegate()
 
-    override val intentProcessor: IntentProcessor<Intent> = IntentProcessor { intent ->
+    override val intentDelegate: IntentDelegate<Intent> = IntentDelegate { intent ->
         when(intent) {
             Intent.Decrease -> onDecreaseIntent()
             Intent.Increase -> onIncreaseIntent()

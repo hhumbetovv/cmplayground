@@ -7,7 +7,6 @@ import az.theternal.cmplayground.feature.counter.CounterContract.Effect
 import az.theternal.common.utils.Logger
 import az.theternal.core.framework.delegates.OnEffectUpdate
 import az.theternal.core.framework.delegates.collectAsState
-import az.theternal.core.framework.delegates.postIntent
 
 @Composable
 fun CounterView(
