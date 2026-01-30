@@ -8,7 +8,6 @@ import az.theternal.core.framework.delegates.IntentConsumer
 import az.theternal.core.framework.delegates.IntentDelegate
 import az.theternal.core.framework.delegates.StateProvider
 import az.theternal.core.framework.delegates.StateDelegate
-import az.theternal.core.framework.delegates.currentState
 import az.theternal.core.framework.delegates.sendEffect
 import az.theternal.core.framework.delegates.setState
 
@@ -26,13 +25,13 @@ class CounterViewModel : ViewModel(), EffectProducer<Effect>, IntentConsumer<Int
 
 
     private fun onDecreaseIntent() {
-        val updatedCount = currentState().count - 1
+        val updatedCount = currentState.count - 1
         setState { copy(count = updatedCount) }
         checkCount(updatedCount)
     }
 
     private fun onIncreaseIntent() {
-        val updatedCount = currentState().count + 1
+        val updatedCount = currentState.count + 1
         setState { copy(count = updatedCount) }
         checkCount(updatedCount)
     }

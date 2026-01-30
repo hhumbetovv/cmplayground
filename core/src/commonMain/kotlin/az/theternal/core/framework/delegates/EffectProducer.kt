@@ -19,10 +19,6 @@ interface ViewEffect
 
 interface EffectProducer<Effect : ViewEffect>{
     val effectDelegate: EffectDelegate<Effect>
-
-    fun sendEffect(effect: Effect) {
-        effectDelegate.sendEffect(effect)
-    }
 }
 
 class EffectDelegate<Effect : ViewEffect> internal constructor(
@@ -42,36 +38,34 @@ class EffectDelegate<Effect : ViewEffect> internal constructor(
     }
 }
 
-context(viewModel: ViewModel)
-fun <Effect : ViewEffect> EffectProducer<Effect>.EffectDelegate(): EffectDelegate<Effect> {
-    val delegate =  EffectDelegate<Effect>(
+context(viewModel: ViewModel, _: EffectProducer<Effect>)
+fun <Effect : ViewEffect> EffectDelegate(): EffectDelegate<Effect> {
+    return EffectDelegate<Effect>(
         scope = viewModel.viewModelScope
-    )
-
-    viewModel.addCloseable(delegate)
-
-    return delegate
-}
-
-context(viewModel: ViewModel)
-fun <Effect : ViewEffect> EffectProducer<Effect>.sendEffect(
-    effect: Effect
-) {
-    viewModel.viewModelScope.launch {
-        effectDelegate.sendEffect(effect)
+    ).also { delegate ->
+        viewModel.addCloseable(delegate)
     }
 }
 
-context(viewModel: ViewModel)
+context(viewModel: ViewModel, producer: EffectProducer<Effect>)
+fun <Effect : ViewEffect> sendEffect(
+    effect: Effect
+) {
+    viewModel.viewModelScope.launch {
+        producer.effectDelegate.sendEffect(effect)
+    }
+}
+
+context(viewModel: ViewModel, producer: EffectProducer<Effect>)
 @Composable
-fun <Effect: ViewEffect> EffectProducer<Effect>.OnEffectUpdate(
+fun <Effect: ViewEffect> OnEffectUpdate(
     collector: FlowCollector<Effect>
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            effectDelegate.effects.collect(collector)
+            producer.effectDelegate.effects.collect(collector)
         }
     }
 }

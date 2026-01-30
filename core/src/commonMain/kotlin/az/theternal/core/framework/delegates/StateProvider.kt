@@ -11,6 +11,9 @@ interface ViewState
 
 interface StateProvider<State: ViewState> {
     val stateDelegate: StateDelegate<State>
+
+    val currentState: State
+        get() = stateDelegate.state.value
 }
 
 class StateDelegate<State: ViewState> internal constructor(
@@ -19,17 +22,13 @@ class StateDelegate<State: ViewState> internal constructor(
     private val _state = MutableStateFlow(createState())
     val state: StateFlow<State> = _state
 
-    val currentState: State
-        get() = state.value
-
     fun setState(producer: State.() -> State) {
         _state.update(producer)
     }
-
 }
 
-context(viewModel: ViewModel)
-fun <State : ViewState> StateProvider<State>.StateDelegate(
+context(_: ViewModel, _: StateProvider<State>)
+fun <State : ViewState> StateDelegate(
     initializer: () -> State
 ): StateDelegate<State> {
     return StateDelegate(
@@ -37,18 +36,12 @@ fun <State : ViewState> StateProvider<State>.StateDelegate(
     )
 }
 
-context(_: ViewModel)
-fun <State : ViewState> StateProvider<State>.currentState(): State {
-    return stateDelegate.currentState
-}
-
-context(_: ViewModel)
 @Composable
 fun <State : ViewState> StateProvider<State>.collectAsState(): androidx.compose.runtime.State<State> {
     return stateDelegate.state.collectAsStateWithLifecycle()
 }
 
-context(viewModel: ViewModel)
+context(_: ViewModel)
 fun <State : ViewState> StateProvider<State>.setState(producer: State.() -> State) {
     stateDelegate.setState(producer)
 }

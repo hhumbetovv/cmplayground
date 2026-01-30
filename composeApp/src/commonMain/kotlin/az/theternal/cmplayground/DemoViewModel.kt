@@ -11,7 +11,7 @@ import az.theternal.core.framework.delegates.StateDelegate
 import az.theternal.core.framework.delegates.ViewEffect
 import az.theternal.core.framework.delegates.ViewIntent
 import az.theternal.core.framework.delegates.ViewState
-import az.theternal.core.framework.delegates.currentState
+import az.theternal.core.framework.delegates.sendEffect
 import az.theternal.core.framework.delegates.setState
 
 class DemoViewModel : ViewModel(), StateProvider<State>, IntentConsumer<Intent>, EffectProducer<Effect> {
@@ -28,7 +28,7 @@ class DemoViewModel : ViewModel(), StateProvider<State>, IntentConsumer<Intent>,
 
     private fun increment() {
         setState { copy(count = count + 1) }
-        if(currentState().count % 10 == 0) {
+        if(currentState.count % 10 == 0) {
             sendEffect(Effect.ShowToast)
         }
     }

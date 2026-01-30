@@ -34,8 +34,8 @@ class IntentDelegate<Intent : ViewIntent> internal constructor(
     }
 }
 
-context(viewModel: ViewModel)
-fun <Intent : ViewIntent> IntentConsumer<Intent>.IntentDelegate(
+context(viewModel: ViewModel, _: IntentConsumer<Intent>)
+fun <Intent : ViewIntent> IntentDelegate(
     onIntent: (Intent) -> Unit,
 ): IntentDelegate<Intent> {
     return IntentDelegate(
