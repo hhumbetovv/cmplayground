@@ -11,9 +11,9 @@ fun <State : ViewState> StateDelegate(
     createState = initializer
 )
 
-context(_: ViewModel)
-fun <State : ViewState> StateHolder<State>.setState(reducer: State.() -> State) {
-    stateDelegate.setState(reducer)
+context(_: ViewModel, holder: StateHolder<State>)
+fun <State : ViewState> setState(reducer: State.() -> State) {
+    holder.stateDelegate.setState(reducer)
 }
 
 @Composable

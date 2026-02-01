@@ -26,16 +26,15 @@ fun <Effect : ViewEffect> sendEffect(effect: Effect) {
     }
 }
 
-context(viewModel: ViewModel, producer: EffectProducer<Effect>)
 @Composable
-fun <Effect : ViewEffect> OnEffectUpdate(
+fun <Effect : ViewEffect> EffectProducer<Effect>.OnEffectUpdate(
     collector: FlowCollector<Effect>
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(viewModel, lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            producer.effectDelegate.effects.collect(collector)
+    LaunchedEffect(this, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            effectDelegate.effects.collect(collector)
         }
     }
 }

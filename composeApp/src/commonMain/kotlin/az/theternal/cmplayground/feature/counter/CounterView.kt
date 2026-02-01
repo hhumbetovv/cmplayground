@@ -13,9 +13,9 @@ import az.theternal.core.framework.delegates.state_holder.collectAsState
 @Composable
 fun ColumnScope.CounterView(
     viewModel: CounterViewModel = viewModel { CounterViewModel() }
-) = with(viewModel) {
+) {
 
-    OnEffectUpdate { effect ->
+    viewModel.OnEffectUpdate { effect ->
         when(effect) {
             is Effect.ShowSnackbar -> {
                 Logger.d(effect.text)
@@ -23,7 +23,7 @@ fun ColumnScope.CounterView(
         }
     }
 
-    val state by collectAsState()
+    val state by viewModel.collectAsState()
 
     CounterContent(
         state = state,
