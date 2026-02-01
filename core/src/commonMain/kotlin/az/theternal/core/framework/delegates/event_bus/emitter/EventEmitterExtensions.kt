@@ -7,18 +7,18 @@ import az.theternal.core.framework.delegates.event_bus.EventBus
 import az.theternal.core.framework.delegates.event_bus.GlobalEventBus
 
 context(viewModel: ViewModel, _: EventEmitter)
-fun EventEmitterDelegate(
+fun EventEmitterHandler(
     eventBus: EventBus = GlobalEventBus,
-): EventEmitterDelegate {
-    return EventEmitterDelegate(
+): EventEmitterHandler {
+    return EventEmitterHandler(
         scope = viewModel.viewModelScope,
         eventBus = eventBus,
-    ).also { delegate ->
-        viewModel.addCloseable(delegate)
+    ).also { handler ->
+        viewModel.addCloseable(handler)
     }
 }
 
 context(_: ViewModel, emitter: EventEmitter)
 fun fireEvent(event: BaseEvent) {
-    emitter.eventEmitterDelegate.fireEvent(event)
+    emitter.eventEmitterHandler.fireEvent(event)
 }

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
 
-class EventObserverDelegate(
+class EventObserverHandler(
     private val scope: CoroutineScope,
     private val eventBus: EventBus = GlobalEventBus,
     builder: EventObserver.Scope.() -> Unit,

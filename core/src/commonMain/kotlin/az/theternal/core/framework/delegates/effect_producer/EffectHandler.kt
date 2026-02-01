@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-class EffectDelegate<Effect : ViewEffect> internal constructor(
+class EffectHandler<Effect : ViewEffect> internal constructor(
     private val scope: CoroutineScope,
 ) : AutoCloseable {
     private val _effects = Channel<Effect>()

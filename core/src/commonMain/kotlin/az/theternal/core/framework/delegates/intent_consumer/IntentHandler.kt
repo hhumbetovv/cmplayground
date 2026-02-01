@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
-class IntentDelegate<Intent : ViewIntent> internal constructor(
+class IntentHandler<Intent : ViewIntent> internal constructor(
     private val scope: CoroutineScope,
     onIntent: (Intent) -> Unit,
 ) {

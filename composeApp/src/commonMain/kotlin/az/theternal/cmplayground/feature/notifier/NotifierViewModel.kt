@@ -4,15 +4,15 @@ import androidx.lifecycle.ViewModel
 import az.theternal.cmplayground.feature.NotifyEvent
 import az.theternal.cmplayground.feature.notifier.NotifierContract.*
 import az.theternal.core.framework.delegates.event_bus.emitter.EventEmitter
-import az.theternal.core.framework.delegates.event_bus.emitter.EventEmitterDelegate
+import az.theternal.core.framework.delegates.event_bus.emitter.EventEmitterHandler
 import az.theternal.core.framework.delegates.event_bus.emitter.fireEvent
 import az.theternal.core.framework.delegates.intent_consumer.IntentConsumer
-import az.theternal.core.framework.delegates.intent_consumer.IntentDelegate
+import az.theternal.core.framework.delegates.intent_consumer.IntentHandler
 
 class NotifierViewModel : ViewModel(), IntentConsumer<Intent>, EventEmitter {
-    override val eventEmitterDelegate: EventEmitterDelegate = EventEmitterDelegate()
+    override val eventEmitterHandler: EventEmitterHandler = EventEmitterHandler()
 
-    override val intentDelegate: IntentDelegate<Intent> = IntentDelegate { intent ->
+    override val intentHandler: IntentHandler<Intent> = IntentHandler { intent ->
         when(intent) {
             Intent.Notify -> {
                 fireEvent(NotifyEvent)

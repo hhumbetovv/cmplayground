@@ -6,7 +6,7 @@ import az.theternal.core.framework.delegates.event_bus.GlobalEventBus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-class EventEmitterDelegate(
+class EventEmitterHandler(
     private val scope: CoroutineScope,
     private val eventBus: EventBus = GlobalEventBus,
 ) : AutoCloseable {

@@ -11,18 +11,18 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.launch
 
 context(viewModel: ViewModel, _: EffectProducer<Effect>)
-fun <Effect : ViewEffect> EffectDelegate(): EffectDelegate<Effect> {
-    return EffectDelegate<Effect>(
+fun <Effect : ViewEffect> EffectHandler(): EffectHandler<Effect> {
+    return EffectHandler<Effect>(
         scope = viewModel.viewModelScope
-    ).also { delegate ->
-        viewModel.addCloseable(delegate)
+    ).also { handler ->
+        viewModel.addCloseable(handler)
     }
 }
 
 context(viewModel: ViewModel, producer: EffectProducer<Effect>)
 fun <Effect : ViewEffect> sendEffect(effect: Effect) {
     viewModel.viewModelScope.launch {
-        producer.effectDelegate.sendEffect(effect)
+        producer.effectHandler.sendEffect(effect)
     }
 }
 
@@ -34,7 +34,7 @@ fun <Effect : ViewEffect> EffectProducer<Effect>.OnEffectUpdate(
 
     LaunchedEffect(this, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            effectDelegate.effects.collect(collector)
+            effectHandler.effects.collect(collector)
         }
     }
 }

@@ -5,18 +5,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 context(_: ViewModel, _: StateHolder<State>)
-fun <State : ViewState> StateDelegate(
+fun <State : ViewState> StateHandler(
     initializer: () -> State,
-): StateDelegate<State> = StateDelegate(
+): StateHandler<State> = StateHandler(
     createState = initializer
 )
 
 context(_: ViewModel, holder: StateHolder<State>)
 fun <State : ViewState> setState(reducer: State.() -> State) {
-    holder.stateDelegate.setState(reducer)
+    holder.stateHandler.setState(reducer)
 }
 
 @Composable
 fun <State : ViewState> StateHolder<State>.collectAsState(): androidx.compose.runtime.State<State> {
-    return stateDelegate.state.collectAsStateWithLifecycle()
+    return stateHandler.state.collectAsStateWithLifecycle()
 }

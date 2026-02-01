@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 
-class StateDelegate<State : ViewState> internal constructor(
+class StateHandler<State : ViewState> internal constructor(
     createState: () -> State,
 ) {
     private val _state = MutableStateFlow(createState())

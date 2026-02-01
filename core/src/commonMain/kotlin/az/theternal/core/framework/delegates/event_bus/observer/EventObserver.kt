@@ -4,7 +4,7 @@ import az.theternal.core.framework.delegates.event_bus.BaseEvent
 import kotlin.reflect.KClass
 
 interface EventObserver {
-    val eventObserverDelegate: EventObserverDelegate
+    val eventObserverHandler: EventObserverHandler
 
     interface Scope {
         fun <T : BaseEvent> on(
