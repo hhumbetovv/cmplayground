@@ -2,6 +2,7 @@ package az.theternal.cmplayground.feature.counter
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,12 +20,13 @@ import az.theternal.cmplayground.feature.counter.components.IncreaseButton
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
-fun CounterContent(
+fun ColumnScope.CounterContent(
     state: State,
     postIntent: (Intent) -> Unit,
 ) {
     Column(
         modifier = Modifier
+            .weight(1f)
             .fillMaxSize()
             .safeContentPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -60,9 +62,11 @@ fun CounterContent(
 @Composable
 fun CounterViewPreview() {
     MaterialTheme {
-        CounterContent(
-            state = State(),
-            postIntent = {},
-        )
+        Column {
+            CounterContent(
+                state = State(),
+                postIntent = {},
+            )
+        }
     }
 }

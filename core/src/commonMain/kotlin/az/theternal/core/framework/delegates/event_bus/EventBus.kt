@@ -10,6 +10,11 @@ import kotlin.reflect.KClass
 
 interface BaseEvent
 
+interface EventBus {
+    suspend fun fire(event: BaseEvent)
+    suspend fun <T : BaseEvent> on(eventClass: KClass<T>): Flow<T>
+}
+
 open class DefaultEventBus : EventBus {
     private val mutex = Mutex()
     private val eventMap = mutableMapOf<KClass<out BaseEvent>, MutableSharedFlow<BaseEvent>>()

@@ -1,15 +1,17 @@
 package az.theternal.cmplayground.feature.counter
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import az.theternal.cmplayground.feature.counter.CounterContract.Effect
 import az.theternal.common.utils.Logger
-import az.theternal.core.framework.delegates.OnEffectUpdate
-import az.theternal.core.framework.delegates.collectAsState
+import az.theternal.core.framework.delegates.effect_producer.OnEffectUpdate
+import az.theternal.core.framework.delegates.intent_consumer.postIntent
+import az.theternal.core.framework.delegates.state_holder.collectAsState
 
 @Composable
-fun CounterView(
+fun ColumnScope.CounterView(
     viewModel: CounterViewModel = viewModel { CounterViewModel() }
 ) = with(viewModel) {
 
