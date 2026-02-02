@@ -4,7 +4,4 @@ interface ViewState
 
 interface StateHolder<State : ViewState> {
     val stateHandler: StateHandler<State>
-
-    val currentState: State
-        get() = stateHandler.currentState
 }

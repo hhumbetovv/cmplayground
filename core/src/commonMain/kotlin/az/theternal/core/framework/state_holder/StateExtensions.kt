@@ -22,3 +22,6 @@ fun <State : ViewState> setState(reducer: State.() -> State) {
 fun <State : ViewState> StateHolder<State>.collectAsState(): androidx.compose.runtime.State<State> {
     return stateHandler.state.collectAsStateWithLifecycle()
 }
+
+val <State: ViewState> StateHolder<State>.currentState
+    get() = stateHandler.currentState

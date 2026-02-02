@@ -13,6 +13,7 @@ import az.theternal.core.framework.intent_consumer.IntentConsumer
 import az.theternal.core.framework.intent_consumer.IntentHandler
 import az.theternal.core.framework.state_holder.StateHolder
 import az.theternal.core.framework.state_holder.StateHandler
+import az.theternal.core.framework.state_holder.currentState
 import az.theternal.core.framework.state_holder.setState
 
 class CounterViewModel : ViewModel(), EffectProducer<Effect>, IntentConsumer<Intent>,
