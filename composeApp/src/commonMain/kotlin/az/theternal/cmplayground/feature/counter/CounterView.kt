@@ -6,9 +6,9 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import az.theternal.cmplayground.feature.counter.CounterContract.Effect
 import az.theternal.common.utils.Logger
-import az.theternal.core.framework.delegates.effect_producer.OnEffectUpdate
-import az.theternal.core.framework.delegates.intent_consumer.postIntent
-import az.theternal.core.framework.delegates.state_holder.collectAsState
+import az.theternal.core.framework.effect_producer.OnEffectUpdate
+import az.theternal.core.framework.intent_consumer.postIntent
+import az.theternal.core.framework.state_holder.collectAsState
 
 @Composable
 fun ColumnScope.CounterView(

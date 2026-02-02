@@ -1,4 +1,4 @@
-package az.theternal.core.framework.delegates.state_holder
+package az.theternal.core.framework.state_holder
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

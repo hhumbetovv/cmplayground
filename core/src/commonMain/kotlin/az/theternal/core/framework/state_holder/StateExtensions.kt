@@ -1,4 +1,4 @@
-package az.theternal.core.framework.delegates.state_holder
+package az.theternal.core.framework.state_holder
 
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
@@ -7,9 +7,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 context(_: ViewModel, _: StateHolder<State>)
 fun <State : ViewState> StateHandler(
     initializer: () -> State,
-): StateHandler<State> = StateHandler(
-    createState = initializer
-)
+): StateHandler<State> {
+    return StateHandler(
+        createState = initializer
+    )
+}
 
 context(_: ViewModel, holder: StateHolder<State>)
 fun <State : ViewState> setState(reducer: State.() -> State) {

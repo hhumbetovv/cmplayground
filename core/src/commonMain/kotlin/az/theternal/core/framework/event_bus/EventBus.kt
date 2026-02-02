@@ -1,4 +1,4 @@
-package az.theternal.core.framework.delegates.event_bus
+package az.theternal.core.framework.event_bus
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow

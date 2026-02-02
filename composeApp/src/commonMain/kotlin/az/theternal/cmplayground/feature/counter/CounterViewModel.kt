@@ -3,17 +3,17 @@ package az.theternal.cmplayground.feature.counter
 import androidx.lifecycle.ViewModel
 import az.theternal.cmplayground.feature.NotifyEvent
 import az.theternal.cmplayground.feature.counter.CounterContract.*
-import az.theternal.core.framework.delegates.effect_producer.EffectHandler
-import az.theternal.core.framework.delegates.effect_producer.EffectProducer
-import az.theternal.core.framework.delegates.effect_producer.sendEffect
-import az.theternal.core.framework.delegates.event_bus.observer.EventObserver
-import az.theternal.core.framework.delegates.event_bus.observer.EventObserverHandler
-import az.theternal.core.framework.delegates.event_bus.observer.on
-import az.theternal.core.framework.delegates.intent_consumer.IntentConsumer
-import az.theternal.core.framework.delegates.intent_consumer.IntentHandler
-import az.theternal.core.framework.delegates.state_holder.StateHolder
-import az.theternal.core.framework.delegates.state_holder.StateHandler
-import az.theternal.core.framework.delegates.state_holder.setState
+import az.theternal.core.framework.effect_producer.EffectHandler
+import az.theternal.core.framework.effect_producer.EffectProducer
+import az.theternal.core.framework.effect_producer.sendEffect
+import az.theternal.core.framework.event_bus.observer.EventObserver
+import az.theternal.core.framework.event_bus.observer.EventObserverHandler
+import az.theternal.core.framework.event_bus.observer.on
+import az.theternal.core.framework.intent_consumer.IntentConsumer
+import az.theternal.core.framework.intent_consumer.IntentHandler
+import az.theternal.core.framework.state_holder.StateHolder
+import az.theternal.core.framework.state_holder.StateHandler
+import az.theternal.core.framework.state_holder.setState
 
 class CounterViewModel : ViewModel(), EffectProducer<Effect>, IntentConsumer<Intent>,
     StateHolder<State>, EventObserver {

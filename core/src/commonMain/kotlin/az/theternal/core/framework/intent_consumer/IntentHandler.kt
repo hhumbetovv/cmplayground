@@ -1,4 +1,4 @@
-package az.theternal.core.framework.delegates.intent_consumer
+package az.theternal.core.framework.intent_consumer
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow

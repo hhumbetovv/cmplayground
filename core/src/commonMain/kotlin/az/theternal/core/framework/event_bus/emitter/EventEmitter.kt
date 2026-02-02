@@ -1,4 +1,4 @@
-package az.theternal.core.framework.delegates.event_bus.emitter
+package az.theternal.core.framework.event_bus.emitter
 
 interface EventEmitter {
     val eventEmitterHandler: EventEmitterHandler

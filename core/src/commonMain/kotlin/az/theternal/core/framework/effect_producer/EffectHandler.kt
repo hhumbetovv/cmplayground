@@ -1,4 +1,4 @@
-package az.theternal.core.framework.delegates.effect_producer
+package az.theternal.core.framework.effect_producer
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel

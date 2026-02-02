@@ -1,6 +1,6 @@
-package az.theternal.core.framework.delegates.event_bus.observer
+package az.theternal.core.framework.event_bus.observer
 
-import az.theternal.core.framework.delegates.event_bus.BaseEvent
+import az.theternal.core.framework.event_bus.BaseEvent
 import kotlin.reflect.KClass
 
 interface EventObserver {
@@ -16,4 +16,9 @@ interface EventObserver {
 
 inline fun <reified T : BaseEvent> EventObserver.Scope.on(
     noinline callback: suspend (T) -> Unit
-) = on(T::class, callback)
+) {
+    return on(
+        eventClass = T::class,
+        block = callback
+    )
+}

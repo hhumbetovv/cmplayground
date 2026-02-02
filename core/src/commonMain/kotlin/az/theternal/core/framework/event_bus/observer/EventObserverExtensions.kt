@@ -1,9 +1,9 @@
-package az.theternal.core.framework.delegates.event_bus.observer
+package az.theternal.core.framework.event_bus.observer
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import az.theternal.core.framework.delegates.event_bus.EventBus
-import az.theternal.core.framework.delegates.event_bus.GlobalEventBus
+import az.theternal.core.framework.event_bus.EventBus
+import az.theternal.core.framework.event_bus.GlobalEventBus
 
 context(viewModel: ViewModel, _: EventObserver)
 fun EventObserverHandler(

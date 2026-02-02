@@ -10,7 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import az.theternal.cmplayground.feature.notifier.NotifierContract.*
-import az.theternal.core.framework.delegates.intent_consumer.postIntent
+import az.theternal.core.framework.intent_consumer.postIntent
 
 @Composable
 fun ColumnScope.NotifierView(

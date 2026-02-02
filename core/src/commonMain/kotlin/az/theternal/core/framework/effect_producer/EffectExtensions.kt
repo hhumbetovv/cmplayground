@@ -1,4 +1,4 @@
-package az.theternal.core.framework.delegates.effect_producer
+package az.theternal.core.framework.effect_producer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
