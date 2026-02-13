@@ -34,7 +34,11 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-private const val INFINITE_MULTIPLIER = 1000
+// Align index to nearest multiple of itemCount + selected offset
+private fun infiniteCenterIndex(itemCount: Int, selectedIndex: Int): Int {
+    val center = Int.MAX_VALUE / 2
+    return center - (center % itemCount) + selectedIndex
+}
 
 @Composable
 fun WheelPicker(
@@ -48,15 +52,32 @@ fun WheelPicker(
     selectedBackground: @Composable (BoxScope.() -> Unit)? = null,
     content: @Composable (index: Int) -> Unit,
 ) {
-    val virtualCount = if (infiniteScroll) itemCount * INFINITE_MULTIPLIER else itemCount
+    val virtualCount = if (infiniteScroll) Int.MAX_VALUE else itemCount
 
-    // For infinite scroll, start at the middle so user can scroll both directions
+    // Start at the center of Int range, aligned to selectedIndex
     LaunchedEffect(infiniteScroll, itemCount) {
         if (infiniteScroll) {
-            val midBase = (INFINITE_MULTIPLIER / 2) * itemCount
-            val targetVirtual = midBase + state.selectedIndex
-            state.lazyListState.scrollToItem(targetVirtual)
+            state.lazyListState.scrollToItem(
+                infiniteCenterIndex(itemCount, state.selectedIndex)
+            )
         }
+    }
+
+    // Re-center when scroll stops to prevent ever drifting too far
+    LaunchedEffect(infiniteScroll, itemCount) {
+        if (!infiniteScroll) return@LaunchedEffect
+        snapshotFlow { state.lazyListState.isScrollInProgress }
+            .collect { scrolling ->
+                if (!scrolling) {
+                    val current = state.lazyListState.firstVisibleItemIndex
+                    val center = infiniteCenterIndex(itemCount, current % itemCount)
+                    // Re-center if drifted more than 10% from middle
+                    if (abs(current - center) > Int.MAX_VALUE / 10) {
+                        val offset = state.lazyListState.firstVisibleItemScrollOffset
+                        state.lazyListState.scrollToItem(center, offset)
+                    }
+                }
+            }
     }
 
     SubcomposeLayout(modifier = modifier) { constraints ->
