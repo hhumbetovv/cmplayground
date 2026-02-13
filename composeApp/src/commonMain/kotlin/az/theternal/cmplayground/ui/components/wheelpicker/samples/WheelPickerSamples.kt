@@ -46,7 +46,7 @@ fun WheelPickerDemo() {
 
         WheelPicker(
             itemCount = items.size,
-            modifier = Modifier.width(200.dp),
+            modifier = Modifier.width(120.dp),
             state = state,
             infiniteScroll = true,
             cylindrical = true,

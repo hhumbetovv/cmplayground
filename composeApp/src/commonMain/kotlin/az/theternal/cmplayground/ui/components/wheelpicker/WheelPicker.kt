@@ -171,48 +171,40 @@ private fun WheelPickerContent(
                         .height(itemHeightDp)
                         .fillMaxWidth()
                         .graphicsLayer {
-                            val info = state.lazyListState.layoutInfo
-                            val viewportCenter =
-                                info.viewportStartOffset + info.viewportSize.height / 2f
+                            // Deterministic position from scroll state —
+                            // no layoutInfo lookup, no frame lag
+                            val signedDistance =
+                                ((virtualIndex - state.lazyListState.firstVisibleItemIndex) *
+                                    itemHeightPx - state.lazyListState.firstVisibleItemScrollOffset)
+                                    .toFloat()
+                            val halfExtent = halfExtentPx.toFloat()
 
-                            val itemInfo =
-                                info.visibleItemsInfo.find { it.index == virtualIndex }
+                            if (cylindrical) {
+                                val radius = halfExtent
+                                val halfPi = (PI / 2.0).toFloat()
+                                val angleRad = (signedDistance / radius)
+                                    .coerceIn(-halfPi, halfPi)
+                                val angleDeg =
+                                    angleRad * (180f / PI.toFloat())
 
-                            if (itemInfo == null) {
-                                // Item not yet in layout info (fast scroll) — hide it
-                                alpha = 0f
+                                rotationX = -angleDeg
+                                cameraDistance = 12f * density.density
+
+                                val arcY =
+                                    radius * sin(angleRad.toDouble()).toFloat()
+                                translationY = arcY - signedDistance
+
+                                val fraction =
+                                    (abs(signedDistance) / halfExtent).coerceIn(0f, 1f)
+                                alpha = 1f - fraction * 0.5f
                             } else {
-                                val itemCenter = itemInfo.offset + itemInfo.size / 2f
-                                val signedDistance = itemCenter - viewportCenter
-                                val halfExtent = halfExtentPx.toFloat()
-
-                                if (cylindrical) {
-                                    val radius = halfExtent
-                                    val halfPi = (PI / 2.0).toFloat()
-                                    val angleRad = (signedDistance / radius)
-                                        .coerceIn(-halfPi, halfPi)
-                                    val angleDeg =
-                                        angleRad * (180f / PI.toFloat())
-
-                                    rotationX = -angleDeg
-                                    cameraDistance = 12f * density.density
-
-                                    val arcY =
-                                        radius * sin(angleRad.toDouble()).toFloat()
-                                    translationY = arcY - signedDistance
-
-                                    val fraction =
-                                        (abs(signedDistance) / halfExtent).coerceIn(0f, 1f)
-                                    alpha = 1f - fraction * 0.5f
-                                } else {
-                                    val fraction =
-                                        (abs(signedDistance) / halfExtent)
-                                            .coerceIn(0f, 1f)
-                                    alpha = 1f - fraction * 0.6f
-                                    val s = 1f - fraction * 0.12f
-                                    scaleX = s
-                                    scaleY = s
-                                }
+                                val fraction =
+                                    (abs(signedDistance) / halfExtent)
+                                        .coerceIn(0f, 1f)
+                                alpha = 1f - fraction * 0.6f
+                                val s = 1f - fraction * 0.12f
+                                scaleX = s
+                                scaleY = s
                             }
                         },
                     contentAlignment = Alignment.Center,
