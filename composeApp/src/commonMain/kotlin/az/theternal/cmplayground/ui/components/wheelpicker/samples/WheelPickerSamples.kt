@@ -49,6 +49,7 @@ fun WheelPickerDemo() {
             modifier = Modifier.width(200.dp),
             state = state,
             infiniteScroll = true,
+            cylindrical = true,
             extendCount = 2,
             selectedBackground = {
                 Box(

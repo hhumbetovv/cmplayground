@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
@@ -28,7 +29,10 @@ import androidx.compose.ui.unit.Constraints
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 private const val INFINITE_MULTIPLIER = 1000
 
@@ -39,6 +43,7 @@ fun WheelPicker(
     state: WheelPickerState = rememberWheelPickerState(),
     extendCount: Int = 2,
     infiniteScroll: Boolean = false,
+    cylindrical: Boolean = false,
     onSelectionChanged: ((Int) -> Unit)? = null,
     selectedBackground: @Composable (BoxScope.() -> Unit)? = null,
     content: @Composable (index: Int) -> Unit,
@@ -75,6 +80,7 @@ fun WheelPicker(
                 itemHeightPx = itemHeight,
                 extendCount = extendCount,
                 infiniteScroll = infiniteScroll,
+                cylindrical = cylindrical,
                 state = state,
                 onSelectionChanged = onSelectionChanged,
                 selectedBackground = selectedBackground,
@@ -95,6 +101,7 @@ private fun WheelPickerContent(
     itemHeightPx: Int,
     extendCount: Int,
     infiniteScroll: Boolean,
+    cylindrical: Boolean,
     state: WheelPickerState,
     onSelectionChanged: ((Int) -> Unit)?,
     selectedBackground: @Composable (BoxScope.() -> Unit)?,
@@ -134,7 +141,8 @@ private fun WheelPickerContent(
     Box(
         modifier = Modifier
             .height(totalHeightDp)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .clipToBounds(),
         contentAlignment = Alignment.Center,
     ) {
         if (selectedBackground != null) {
@@ -169,17 +177,42 @@ private fun WheelPickerContent(
 
                             val itemInfo =
                                 info.visibleItemsInfo.find { it.index == virtualIndex }
-                            if (itemInfo != null) {
+
+                            if (itemInfo == null) {
+                                // Item not yet in layout info (fast scroll) — hide it
+                                alpha = 0f
+                            } else {
                                 val itemCenter = itemInfo.offset + itemInfo.size / 2f
-                                val distance = abs(itemCenter - viewportCenter)
-                                val fraction =
-                                    (distance / halfExtentPx.toFloat()).coerceIn(0f, 1f)
+                                val signedDistance = itemCenter - viewportCenter
+                                val halfExtent = halfExtentPx.toFloat()
 
-                                alpha = 1f - fraction * 0.6f
+                                if (cylindrical) {
+                                    val radius = halfExtent
+                                    val halfPi = (PI / 2.0).toFloat()
+                                    val angleRad = (signedDistance / radius)
+                                        .coerceIn(-halfPi, halfPi)
+                                    val angleDeg =
+                                        angleRad * (180f / PI.toFloat())
 
-                                val s = 1f - fraction * 0.12f
-                                scaleX = s
-                                scaleY = s
+                                    rotationX = -angleDeg
+                                    cameraDistance = 12f * density.density
+
+                                    val arcY =
+                                        radius * sin(angleRad.toDouble()).toFloat()
+                                    translationY = arcY - signedDistance
+
+                                    val fraction =
+                                        (abs(signedDistance) / halfExtent).coerceIn(0f, 1f)
+                                    alpha = 1f - fraction * 0.5f
+                                } else {
+                                    val fraction =
+                                        (abs(signedDistance) / halfExtent)
+                                            .coerceIn(0f, 1f)
+                                    alpha = 1f - fraction * 0.6f
+                                    val s = 1f - fraction * 0.12f
+                                    scaleX = s
+                                    scaleY = s
+                                }
                             }
                         },
                     contentAlignment = Alignment.Center,
