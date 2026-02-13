@@ -111,23 +111,16 @@ private fun WheelPickerContent(
     val itemHeightDp = with(density) { itemHeightPx.toDp() }
     val totalHeightDp = itemHeightDp * (extendCount * 2 + 1)
 
-    // Selection tracking
-    LaunchedEffect(state.lazyListState, itemCount) {
+    // Selection tracking — continuous, deterministic, no frame lag
+    LaunchedEffect(state.lazyListState, itemCount, itemHeightPx) {
         snapshotFlow {
-            if (state.lazyListState.isScrollInProgress) return@snapshotFlow -1
+            val firstIndex = state.lazyListState.firstVisibleItemIndex
+            val scrollOffset = state.lazyListState.firstVisibleItemScrollOffset
+            val virtualIndex = firstIndex +
+                if (scrollOffset > itemHeightPx / 2) 1 else 0
 
-            val layoutInfo = state.lazyListState.layoutInfo
-            val viewportCenter =
-                layoutInfo.viewportStartOffset + layoutInfo.viewportSize.height / 2
-
-            val virtualIndex = layoutInfo.visibleItemsInfo.minByOrNull {
-                abs((it.offset + it.size / 2) - viewportCenter)
-            }?.index ?: -1
-
-            if (virtualIndex >= 0 && infiniteScroll) virtualIndex % itemCount
-            else virtualIndex
+            if (infiniteScroll) virtualIndex % itemCount else virtualIndex
         }
-            .filter { it >= 0 }
             .distinctUntilChanged()
             .drop(1)
             .collect { index ->
