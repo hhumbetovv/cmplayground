@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -49,6 +48,7 @@ fun WheelPickerDemo() {
             itemCount = items.size,
             modifier = Modifier.width(200.dp),
             state = state,
+            infiniteScroll = true,
             extendCount = 2,
             selectedBackground = {
                 Box(
