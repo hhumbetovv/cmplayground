@@ -51,6 +51,7 @@ fun WheelPickerDemo() {
             infiniteScroll = true,
             cylindrical = true,
             extendCount = 2,
+            magnification = 1.1f,
             selectedBackground = {
                 Box(
                     modifier = Modifier

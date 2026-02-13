@@ -22,6 +22,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
@@ -48,6 +53,7 @@ fun WheelPicker(
     extendCount: Int = 2,
     infiniteScroll: Boolean = false,
     cylindrical: Boolean = false,
+    magnification: Float = 1f,
     onSelectionChanged: ((Int) -> Unit)? = null,
     selectedBackground: @Composable (BoxScope.() -> Unit)? = null,
     content: @Composable (index: Int) -> Unit,
@@ -102,6 +108,7 @@ fun WheelPicker(
                 extendCount = extendCount,
                 infiniteScroll = infiniteScroll,
                 cylindrical = cylindrical,
+                magnification = magnification,
                 state = state,
                 onSelectionChanged = onSelectionChanged,
                 selectedBackground = selectedBackground,
@@ -123,6 +130,7 @@ private fun WheelPickerContent(
     extendCount: Int,
     infiniteScroll: Boolean,
     cylindrical: Boolean,
+    magnification: Float,
     state: WheelPickerState,
     onSelectionChanged: ((Int) -> Unit)?,
     selectedBackground: @Composable (BoxScope.() -> Unit)?,
@@ -170,10 +178,40 @@ private fun WheelPickerContent(
 
         val halfExtentPx = itemHeightPx * extendCount
 
+        val hasMagnifier = magnification > 1f
+
         LazyColumn(
             modifier = Modifier
                 .height(totalHeightDp)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .then(
+                    if (hasMagnifier) {
+                        Modifier.drawWithContent {
+                            val bandHeight = itemHeightPx.toFloat()
+                            val bandTop = (size.height - bandHeight) / 2f
+                            val bandBottom = bandTop + bandHeight
+
+                            // Normal content outside the center band
+                            clipRect(
+                                top = bandTop,
+                                bottom = bandBottom,
+                                clipOp = ClipOp.Difference,
+                            ) {
+                                this@drawWithContent.drawContent()
+                            }
+
+                            // Magnified content inside the center band
+                            clipRect(top = bandTop, bottom = bandBottom) {
+                                scale(
+                                    magnification,
+                                    pivot = Offset(size.width / 2f, size.height / 2f),
+                                ) {
+                                    this@drawWithContent.drawContent()
+                                }
+                            }
+                        }
+                    } else Modifier
+                ),
             state = state.lazyListState,
             contentPadding = PaddingValues(vertical = itemHeightDp * extendCount),
             flingBehavior = flingBehavior,
