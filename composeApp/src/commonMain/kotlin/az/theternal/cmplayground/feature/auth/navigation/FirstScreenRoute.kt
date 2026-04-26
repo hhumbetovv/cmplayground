@@ -3,11 +3,8 @@ package az.theternal.cmplayground.feature.auth.navigation
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
-sealed interface AuthRoute : NavKey {
+sealed interface FirstScreenRoute : NavKey {
 
     @Serializable
-    data object Login : AuthRoute
-
-    @Serializable
-    data object Register : AuthRoute
+    data object FirstScreen : FirstScreenRoute
 }

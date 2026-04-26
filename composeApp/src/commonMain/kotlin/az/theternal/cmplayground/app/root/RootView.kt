@@ -13,8 +13,9 @@ import az.theternal.cmplayground.core.navigation.common.EmptyRoute
 import az.theternal.cmplayground.core.navigation.common.NavAnimations
 import az.theternal.cmplayground.core.navigation.navigator.NavigatorProvider
 import az.theternal.cmplayground.core.navigation.result.ResultManagerProvider
-import az.theternal.cmplayground.feature.auth.navigation.authGraph
-import az.theternal.cmplayground.feature.post.navigation.postGraph
+import az.theternal.cmplayground.feature.auth.navigation.firstScreenGraph
+import az.theternal.cmplayground.feature.auth.provider.AuthStatusProvider
+import az.theternal.cmplayground.feature.post.navigation.secondScreenGraph
 
 @Composable
 fun RootView(
@@ -31,23 +32,30 @@ fun RootView(
                 }
             )
         ) {
-            NavDisplay(
-                onBack = {
-                    viewModel.postIntent(
-                        Intent.UpdateBackStack { removeLastOrNull() }
-                    )
-                },
-                backStack = state.backStack,
-                transitionSpec = NavAnimations.defaultPushTransition(),
-                popTransitionSpec = NavAnimations.defaultPopTransition(),
-                predictivePopTransitionSpec = NavAnimations.defaultPredictivePopTransition(),
-                entryProvider = entryProvider {
-                    authGraph()
-                    postGraph()
-
-                    entry<EmptyRoute> { }
+            AuthStatusProvider(
+                authStatus = state.authStatus,
+                onAuthStatusChanged = { authStatus ->
+                    viewModel.postIntent(Intent.UpdateAuthStatus(authStatus))
                 }
-            )
+            ) {
+                NavDisplay(
+                    onBack = {
+                        viewModel.postIntent(
+                            Intent.UpdateBackStack { removeLastOrNull() }
+                        )
+                    },
+                    backStack = state.backStack,
+                    transitionSpec = NavAnimations.defaultPushTransition(),
+                    popTransitionSpec = NavAnimations.defaultPopTransition(),
+                    predictivePopTransitionSpec = NavAnimations.defaultPredictivePopTransition(),
+                    entryProvider = entryProvider {
+                        firstScreenGraph()
+                        secondScreenGraph()
+
+                        entry<EmptyRoute> { }
+                    }
+                )
+            }
         }
     }
 }
