@@ -29,8 +29,8 @@ Four rules:
 
 1. **One state class per screen**, extending `UiState`, annotated `@Stable`. Fields hold immutable
    values; the field is the mutable part, never its contents.
-2. **Only the owner writes.** `Field` exposes `State`; writing needs a `StateWriter`, and the only
-   way to get one is inside a ViewModel's `reduceState { }` block.
+2. **Only the owner writes.** `Field` exposes `State`; the `set` functions take a `ViewModel`
+   context parameter, so they do not resolve anywhere else.
 3. **Nothing derived is stored.** Derived values are `derived { }`, so they cannot go stale.
 4. **Components take a component state, never the screen state**, and read `.value` at the point of
    use.
@@ -73,56 +73,65 @@ and the last is built from the first two, so nothing needs `remember` at the cal
 ### Writing
 
 A screen ViewModel declares nothing for state ownership — `ViewModel` and `ContainerHost`, no base
-class, no marker interface:
+class, no marker interface, no writer type:
 
 ```kotlin
 class TasksViewModel : ViewModel(), ContainerHost<TasksState, TasksEffect> {
-    val state = TasksState()
+
+    val state: TasksState get() = container.stateFlow.value
 
     private fun changeQuery(query: String) = intent {
-        reduceState { state.query.set(query) }
+        reduce {
+            state.query.set(query)
+            state
+        }
     }
 }
 ```
 
-`reduceState` is a `ViewModel` extension that puts a `StateWriter` in scope for its block and applies
-everything inside as one snapshot:
+Writes go through Orbit's own `reduce`, so they are serialised on its event loop like any other
+reduction. The holder's identity never changes, so the block hands the same `state` back — the
+reduction is an identity one, and what actually changed is the field.
+
+`set` is a context-parameter extension:
 
 ```kotlin
-reduceState {
-    state.isLoading.set(false)
-    state.canLoadMore.set(page.hasMore)
-    state.errorMessage.set(null)
+context(_: ViewModel)
+fun <T> UiState.Field<T>.set(value: T) = write(value)
+
+context(_: ViewModel)
+fun <T> UiState.Field<T>.set(producer: T.() -> T) = write(value.producer())
+```
+
+It resolves inside a ViewModel and nowhere else — a composable holding the screen state can read
+every field and call none of these. That is the whole enforcement; there is no wrapper type and no
+block to opt into.
+
+For several fields at once, `set { }` on the holder batches them into one snapshot and returns the
+holder, which is exactly what `reduce` wants back:
+
+```kotlin
+reduce {
+    state.set {
+        isLoading.set(false)
+        canLoadMore.set(page.hasMore)
+        errorMessage.set(null)
+    }
 }
 ```
 
-`set` and `update` are members of `StateWriter`, so they exist only where `reduceState` put one in scope.
-The type is `sealed` with a private implementation, which closes the three ways around it — the
-compiler rejects all of them:
+Without it each write is its own notification, and a composition can observe the new list one frame
+before the loading flag clears. Orbit's event loop serialises reductions against each other; it does
+not make the writes inside one reduction atomic against composition.
 
-```kotlin
-viewModel.state.query.set("x")     // unresolved reference: no receiver in scope
-StateWriter()                      // cannot construct: no accessible constructor
-object My : StateWriter { ... }    // cannot implement: sealed, declared in another package
-```
+**How strong is the guarantee.** A context parameter is satisfied by any implicit receiver of that
+type, so `with(viewModel) { state.query.set("x") }` compiles from anywhere — verified against the
+compiler. It is the same strength a marker interface gave, with the machinery deleted rather than
+made airtight. Tightening it means a context type a composable cannot obtain (Orbit's `Syntax`, say),
+at the cost of shutting out the non-Orbit holder.
 
-Writes that a holder makes to its **own** fields use the matching `protected` helpers on `UiState`
-instead — that is the UI-owned case, `TaskEditorUiState`.
-
-Helper functions that write several fields are declared as `StateWriter` extensions inside the
-ViewModel, so they are callable only from a `reduceState` block and can still see the ViewModel's own
-`state`:
-
-```kotlin
-private fun StateWriter.putTask(id: String, transform: TaskItemState.() -> TaskItemState) { ... }
-
-reduceState { putTask(id) { copy(isBusy = true) } }
-```
-
-Atomicity being the default matters more than under a reducer. A reducer publishes one new object;
-separate field writes are separate notifications, so a composition could otherwise observe the new
-list one frame before the loading flag clears. It also makes writes from a background thread —
-Orbit reduces on its own event loop — land together.
+State a holder owns itself — `TaskEditorUiState` — uses the matching `protected` helpers on
+`UiState` instead, and needs no context at all.
 
 ### Lists are normalised
 
@@ -184,19 +193,27 @@ A dialog is **not** an effect — it is a field on the screen state, so it survi
 
 ### Orbit
 
-Orbit keeps everything it is good at: intents are serialised on its event loop, `intent { }` gives
-each one a coroutine scope tied to the container, effects go through `postSideEffect`, and
-`collectSideEffect` is called directly with no wrapper. The container is left at its defaults.
+Orbit is used exactly as it ships. `TasksScreen` calls `collectAsState()` and `collectSideEffect()`
+directly; intents are serialised on the event loop; effects go through `postSideEffect`; the
+container is left at its defaults and is the state's home.
 
-What is gone is `reduce`. The container's state is the field holder and its identity never changes,
-so there is nothing to reduce into and nothing to collect: the UI reads fields, and the snapshot
-system delivers each write. `Syntax.state` still returns the holder, so intents read like
-`state.query.set(query)`.
+`reduce` is Orbit's own, and it is where every write happens. The only unusual thing is what the
+state is: a holder of fields rather than a value, so the reduction returns the same instance it was
+given. Nothing collects the container's `stateFlow` — the UI reads fields, and the snapshot system
+delivers each write.
 
 Pinned to **11.0.0**: `ContainerHost<STATE, SIDE_EFFECT>` and `ViewModel.container(...)`. Orbit 12
 renames those to `OrbitContainerHost<INTERNAL, EXTERNAL, SIDE_EFFECT>` and `orbitContainer(...)`,
-deprecating the old names — upgrading is two lines in `TasksViewModel` and one import in
+deprecating the old names — upgrading is two lines in `TasksViewModel` and two imports in
 `TasksScreen`, because nothing else imports Orbit.
+
+### Toolchain
+
+Kotlin **2.4.10**, Compose Multiplatform **1.11.1**. Context parameters are stable in 2.4, so the
+`-Xcontext-parameters` flag 2.3 needed is gone and the build sets no compiler options at all.
+
+`iosX64` (the Intel simulator) is no longer a target: Compose Multiplatform stopped publishing for
+it.
 
 ### What this costs
 
@@ -209,17 +226,17 @@ Worth stating plainly, because the trade is real:
   everything below it. The rule "read at the point of use" is load-bearing, not stylistic;
 - `@Stable` on the state classes is a promise the compiler cannot verify — it holds because every
   field is a `MutableState`;
-- every write is wrapped in `reduceState { }`, which is a few characters of ceremony on single-field
-  writes. Kotlin 2.2's context parameters would remove it — `context(_: ViewModel)` on `set` gives
-  the same scoping without the block — but that is not available on Kotlin 2.1.
+- a write must sit inside `reduce { }` and the block has to hand the holder back, so a single-field
+  write is three lines rather than one;
+- the write guarantee is scoping, not sealing: see **How strong is the guarantee** above.
 
 ## Plugging in another architecture
 
 The state class and the components know nothing about the holder, so the architecture-specific
 surface is a single composable, the screen function. To add a holder:
 
-1. own a `UiState` and write it from `reduceState { }` (a `ViewModel` extension — an equivalent on
-   `ContainerHost` would scope it to Orbit hosts);
+1. own a `UiState` and write it with `set` from inside the ViewModel — through `reduce { }` if the
+   holder has one, directly otherwise;
 2. expose effects as a `Flow<E>` and collect them with `collectUiEffects` (or the library's own
    collector, as the Orbit screen does);
 3. build the actions bag from whatever the holder exposes — intents, methods, callbacks.
@@ -232,7 +249,7 @@ Two are already in the tree and share every component below `XxxScreen`:
 | input | `TasksIntent` sealed interface | public methods |
 | effects | `postSideEffect` | buffered `Channel` |
 | collected with | `collectSideEffect` | `collectUiEffects` |
-| state | `UiState` + `reduceState { }` | identical |
+| state | `UiState` + `set` in `reduce { }` | `UiState` + `set` directly |
 | view layer | identical contract | identical contract |
 
 ## Case coverage
@@ -248,7 +265,7 @@ Two are already in the tree and share every component below `XxxScreen`:
 | list that skips when an item changes | `TaskListState`, `TaskList`, `TaskRow` |
 | per-item async with a per-item busy flag | `TasksViewModel.putTask` |
 | pagination without recomposing on scroll | `TaskList` (`snapshotFlow`) |
-| atomic multi-field write | `TasksViewModel.loadPage` (`reduceState { }`) |
+| atomic multi-field write | `TasksViewModel.loadPage` (`state.set { }`) |
 | form in a modal sheet, validation, saving state | `TaskEditorSheet` |
 | UI-owned state next to holder-owned state | `TaskEditorUiState` |
 | confirm dialog held as state | `TaskDeleteDialog` |
