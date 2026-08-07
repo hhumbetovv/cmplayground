@@ -1,5 +1,9 @@
 This is a Kotlin Multiplatform project targeting Android, iOS.
 
+**State architecture:** see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — one immutable state
+class per screen, a projection per component, `State<S>` as the only contract the UI knows, and two
+worked examples (Orbit MVI and a plain `StateFlow` holder) sharing the same view layer.
+
 * `/composeApp` is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
   - `commonMain` is for code that’s common for all targets.
