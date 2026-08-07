@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
+import az.theternal.cmplayground.core.state.read
 import az.theternal.cmplayground.feature.tasks.domain.TaskPriority
 
 @Immutable
@@ -64,7 +65,7 @@ fun TaskRow(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val task = state.value ?: return
+    val task = state.read() ?: return
 
     Card(
         modifier = modifier

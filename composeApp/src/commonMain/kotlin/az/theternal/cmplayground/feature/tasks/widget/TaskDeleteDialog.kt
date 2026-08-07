@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import az.theternal.cmplayground.core.mvi.ComponentState
+import az.theternal.cmplayground.core.state.read
 
 @Immutable
 data class TaskDeleteDialogState(
@@ -26,7 +27,7 @@ fun TaskDeleteDialog(
     onConfirmClick: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
-    val dialog = state.value ?: return
+    val dialog = state.read() ?: return
 
     AlertDialog(
         onDismissRequest = onDismissRequest,

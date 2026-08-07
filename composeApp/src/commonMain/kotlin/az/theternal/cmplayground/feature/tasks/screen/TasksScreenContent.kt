@@ -10,16 +10,16 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import az.theternal.cmplayground.core.mvi.asUiState
+import az.theternal.cmplayground.core.state.map
+import az.theternal.cmplayground.core.state.read
 import az.theternal.cmplayground.feature.tasks.contract.TasksActions
 import az.theternal.cmplayground.feature.tasks.contract.TasksPhase
-import az.theternal.cmplayground.feature.tasks.contract.TasksScreenState
 import az.theternal.cmplayground.feature.tasks.contract.TasksState
-import az.theternal.cmplayground.feature.tasks.contract.rememberTasksScreenState
 import az.theternal.cmplayground.feature.tasks.domain.TaskPriority
 import az.theternal.cmplayground.feature.tasks.widget.TaskDeleteDialog
 import az.theternal.cmplayground.feature.tasks.widget.TaskEditorSheet
@@ -40,17 +40,15 @@ private val SectionSpacing = 12.dp
 private val FabPadding = 16.dp
 
 /**
- * The whole view layer in one signature: the component states and a bag of callbacks.
+ * The whole view layer in one signature: a `State<TasksState>` and a bag of callbacks.
  *
  * No container, no ViewModel, no intent type, no coroutine scope — which is why this screen can be
- * driven by Orbit, by any other holder, or by a preview built from a hand-written state.
- *
- * Nothing is narrowed here: every component receives the object built for it in
- * [rememberTasksScreenState]. This function reads nothing at all and composes once.
+ * driven by Orbit, by a `StateFlow` holder, or by a preview with a hand-written state, and why
+ * this function reads exactly one thing itself: the phase.
  */
 @Composable
 fun TasksScreenContent(
-    state: TasksScreenState,
+    state: State<TasksState>,
     actions: TasksActions,
     modifier: Modifier = Modifier,
 ) {
@@ -68,17 +66,17 @@ fun TasksScreenContent(
                 verticalArrangement = Arrangement.spacedBy(SectionSpacing),
             ) {
                 TasksSearchField(
-                    state = state.searchField,
+                    state = state.map { searchFieldState() },
                     onQueryChange = actions.onQueryChange,
                     onClearClick = actions.onQueryClearClick,
                 )
 
                 TasksFilterRow(
-                    state = state.filterRow,
+                    state = state.map { filterRowState() },
                     onFilterClick = actions.onFilterClick,
                 )
 
-                TasksSummaryBar(state = state.summary)
+                TasksSummaryBar(state = state.map { summaryState() })
             }
 
             TasksBodySection(
@@ -99,7 +97,7 @@ fun TasksScreenContent(
     }
 
     TaskEditorSheet(
-        state = state.editor,
+        state = state.map { editor },
         onTitleChange = actions.onEditorTitleChange,
         onNoteChange = actions.onEditorNoteChange,
         onPriorityChange = actions.onEditorPriorityChange,
@@ -108,40 +106,39 @@ fun TasksScreenContent(
     )
 
     TaskDeleteDialog(
-        state = state.deleteTarget,
+        state = state.map { deleteTarget },
         onConfirmClick = actions.onDeleteConfirmClick,
         onDismissRequest = actions.onDeleteDismissRequest,
     )
 }
 
 /**
- * The phase switch is the one place that reads, so it sits in its own composable: going from
- * loading to content recomposes the body and leaves the search field, filters and summary above it
- * untouched.
+ * The phase switch sits in its own composable so that going from loading to content recomposes
+ * only the body — the search field, filters and summary above it are untouched.
  */
 @Composable
 private fun TasksBodySection(
-    state: TasksScreenState,
+    state: State<TasksState>,
     actions: TasksActions,
     modifier: Modifier = Modifier,
 ) {
-    when (state.phase.value) {
+    when (state.read { phase() }) {
         TasksPhase.LOADING -> TasksLoadingView(modifier)
 
         TasksPhase.ERROR -> TasksErrorView(
-            state = state.errorView,
+            state = state.map { errorViewState() },
             onRetryClick = actions.onRetryClick,
             modifier = modifier,
         )
 
         TasksPhase.EMPTY -> TasksEmptyView(
-            state = state.emptyView,
+            state = state.map { emptyViewState() },
             onClearFiltersClick = actions.onFiltersClearClick,
             modifier = modifier,
         )
 
         TasksPhase.CONTENT -> TaskList(
-            state = state.list,
+            state = state.map { listState() },
             onTaskClick = actions.onTaskClick,
             onTaskCheckedChange = actions.onTaskDoneChange,
             onTaskDeleteClick = actions.onTaskDeleteClick,
@@ -158,16 +155,12 @@ private fun TasksScreenContentPreview() {
         "1" to TaskItemState("1", "Split the state class", "note", TaskPriority.HIGH, false, false),
         "2" to TaskItemState("2", "Measure recompositions", "note", TaskPriority.NORMAL, true, true),
     )
-    val source = remember {
-        mutableStateOf(
-            TasksState(
-                isLoading = false,
-                taskIds = tasks.keys.toPersistentList(),
-                tasksById = tasks,
-                visibleTaskIds = tasks.keys.toPersistentList(),
-            ),
-        )
-    }
+    val state = TasksState(
+        isLoading = false,
+        taskIds = tasks.keys.toPersistentList(),
+        tasksById = tasks,
+        visibleTaskIds = tasks.keys.toPersistentList(),
+    )
 
-    TasksScreenContent(rememberTasksScreenState(source), TasksActions())
+    TasksScreenContent(state = state.asUiState(), actions = TasksActions())
 }

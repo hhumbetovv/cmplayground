@@ -7,47 +7,26 @@ import androidx.compose.runtime.Stable
  * Screen-level state. One immutable class per screen, owned by whatever holder the feature uses
  * (Orbit container, `MutableStateFlow`, a presenter function, ...).
  *
- * The UI never receives this type. A screen's `rememberXxxScreenState` turns a `State<S>` of it into
- * one component state per component, built once — see
- * [az.theternal.cmplayground.core.state.derive].
+ * The UI never receives this type directly: it receives a `State<S>` and narrows it into
+ * component states with [az.theternal.cmplayground.core.state.map] /
+ * [az.theternal.cmplayground.core.state.read]. That is what keeps recomposition scoped to the
+ * component whose slice actually changed.
  *
  * Rules that make the model hold:
  * - immutable properties only, immutable collections only (`kotlinx.collections.immutable`);
- * - no Compose types inside — the state class must be usable without a composition;
- * - nothing derived is stored: `isFiltered`, `phase()` and the counters are computed, so they cannot
- *   disagree with the fields they came from.
+ * - no Compose types inside — ephemeral, UI-owned state stays in the composable that owns it;
+ * - projection functions (`fun searchFieldState(): ...`) build the per-component state classes.
  */
 @Stable
 interface UiState
 
 /**
- * The input of a single component. Two shapes, chosen per component:
+ * State of a single component, produced by a projection function on a [UiState].
  *
- * ```
- * // values — passed as State<X>, read whole, compared as a unit
- * @Immutable
- * data class TasksErrorViewState(val message: String) : ComponentState
- *
- * // State fields — passed as X, built once, read at each point of use
- * @Stable
- * data class TasksSearchFieldState(
- *     val query: State<String>,
- *     val isClearVisible: State<Boolean>,
- * ) : ComponentState
- * ```
- *
- * Values when the component is small and its fields change together: it stays a plain value that a
- * test can build and compare without Compose.
- *
- * `State` fields when the fields change independently, when the component has inner scopes that can
- * usefully recompose alone, or when a projection behind a field is expensive. The object is then
- * constant, so the component's parameters never change and its caller cannot recompose it.
- *
- * Either way the class is **homogeneous** — all values or all `State`. Mixing them means a component
- * recomposes for the plain fields and not for the others, which nobody can predict from the call
- * site.
+ * A component state is rebuilt on every derivation, so it must be a `data class` of immutable
+ * values: structural equality is exactly what decides whether the component recomposes.
  */
-@Stable
+@Immutable
 interface ComponentState
 
 /** A user (or system) intention, reduced by the state holder into a new [UiState]. */

@@ -11,38 +11,36 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
-import az.theternal.cmplayground.core.state.derive
+import az.theternal.cmplayground.core.state.map
+import az.theternal.cmplayground.core.state.read
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
 /**
- * Carries the list as ids plus a lookup, not as a list of items, and as `State` fields rather than
- * values.
+ * Carries the list as ids plus a lookup, not as a list of items.
  *
- * The split decouples the two kinds of change: `ids` moves when the list's shape moves — a page
- * appended, a task created or deleted, a filter applied — while `tasksById` moves whenever any
- * single item changes. Separate `State` fields are what let [TaskList] read the first while each row
- * derives its own entry from the second; as one value they would arrive together and an item edit
- * would recompose the list.
+ * That split is what decouples the two kinds of change. `ids` changes when the list's shape
+ * changes — a page appended, a task created or deleted, a filter applied. `tasksById` changes
+ * whenever any single item changes. Because [TaskList] reads only the first and each row derives
+ * only its own entry from the second, an item edit never reaches the list.
  */
-@Stable
+@Immutable
 data class TaskListState(
-    val ids: State<ImmutableList<String>>,
-    val tasksById: State<ImmutableMap<String, TaskItemState>>,
-    val canLoadMore: State<Boolean>,
-    val isLoadingMore: State<Boolean>,
+    val ids: ImmutableList<String>,
+    val tasksById: ImmutableMap<String, TaskItemState>,
+    val canLoadMore: Boolean,
+    val isLoadingMore: Boolean,
 ) : ComponentState
 
 private val ItemSpacing = 12.dp
@@ -51,14 +49,19 @@ private val FooterPadding = 24.dp
 private const val LOAD_MORE_THRESHOLD = 3
 
 /**
- * `ids` is the only thing this function reads, so it recomposes when the list's shape changes and at
- * no other time. Editing a task rewrites one map entry, which reaches the row that derived it and
- * stops there; `canLoadMore` is read inside the paging flow and `isLoadingMore` inside the footer's
- * own scope, so neither can invalidate the list either.
+ * Recomposes only when the ids change.
+ *
+ * `state` as a whole changes on every item edit, but nothing here reads it: `read { ids }` derives
+ * the id list, which stays `equals` through an item edit, and each row derives its own item by id
+ * inside its own composition scope. Toggling one task therefore recomposes one row and nothing
+ * else — not this function, not its siblings.
+ *
+ * Paging is driven from a `snapshotFlow` rather than a `derivedStateOf` read in the body, so
+ * scrolling does not recompose this composable either.
  */
 @Composable
 fun TaskList(
-    state: TaskListState,
+    state: State<TaskListState>,
     onTaskClick: (String) -> Unit,
     onTaskCheckedChange: (String, Boolean) -> Unit,
     onTaskDeleteClick: (String) -> Unit,
@@ -66,15 +69,15 @@ fun TaskList(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    val ids = state.ids.value
+    val ids = state.read { ids }
+    val canLoadMore = state.read { canLoadMore }
 
-    LaunchedEffect(listState, state) {
+    LaunchedEffect(listState, canLoadMore) {
+        if (!canLoadMore) return@LaunchedEffect
         snapshotFlow {
             val info = listState.layoutInfo
             val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: return@snapshotFlow false
-            state.canLoadMore.value &&
-                info.totalItemsCount > 0 &&
-                lastVisible >= info.totalItemsCount - LOAD_MORE_THRESHOLD
+            info.totalItemsCount > 0 && lastVisible >= info.totalItemsCount - LOAD_MORE_THRESHOLD
         }
             .distinctUntilChanged()
             .filter { it }
@@ -91,7 +94,7 @@ fun TaskList(
     ) {
         items(items = ids, key = { it }) { id ->
             TaskRow(
-                state = remember(id) { state.tasksById.derive { this[id] } },
+                state = state.map { tasksById[id] },
                 onClick = { onTaskClick(id) },
                 onCheckedChange = { isDone -> onTaskCheckedChange(id, isDone) },
                 onDeleteClick = { onTaskDeleteClick(id) },
@@ -99,14 +102,14 @@ fun TaskList(
         }
 
         item(key = "load-more-footer") {
-            TaskListFooter(state.isLoadingMore)
+            TaskListFooter(state.read { isLoadingMore })
         }
     }
 }
 
 @Composable
-private fun TaskListFooter(isLoadingMore: State<Boolean>) {
-    if (!isLoadingMore.value) return
+private fun TaskListFooter(isLoadingMore: Boolean) {
+    if (!isLoadingMore) return
 
     Box(
         modifier = Modifier

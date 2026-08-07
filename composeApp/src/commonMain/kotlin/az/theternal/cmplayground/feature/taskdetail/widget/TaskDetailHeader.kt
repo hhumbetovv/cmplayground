@@ -9,62 +9,61 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
+import az.theternal.cmplayground.core.state.read
 import az.theternal.cmplayground.feature.tasks.domain.TaskPriority
 
-/**
- * `State` fields: ticking the task changes `isDone` and `isUpdating` while the title and the
- * priority stand still, so the status row repaints and the title does not.
- */
-@Stable
+@Immutable
 data class TaskDetailHeaderState(
-    val title: State<String>,
-    val priority: State<TaskPriority>,
-    val isDone: State<Boolean>,
-    val isUpdating: State<Boolean>,
+    val title: String,
+    val priority: TaskPriority,
+    val isDone: Boolean,
+    val isUpdating: Boolean,
 ) : ComponentState
 
 private val HeaderSpacing = 12.dp
 
 @Composable
 fun TaskDetailHeader(
-    state: TaskDetailHeaderState,
+    state: State<TaskDetailHeaderState>,
     onDoneChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val header = state.read()
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .trackRecompositions(),
         verticalArrangement = Arrangement.spacedBy(HeaderSpacing),
     ) {
-        Text(text = state.title.value, style = MaterialTheme.typography.headlineSmall)
+        Text(text = header.title, style = MaterialTheme.typography.headlineSmall)
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AssistChip(onClick = {}, label = { Text(state.priority.value.label) })
+            AssistChip(onClick = {}, label = { Text(header.priority.label) })
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(HeaderSpacing),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = if (state.isDone.value) "Done" else "Open",
+                    text = if (header.isDone) "Done" else "Open",
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Switch(
-                    checked = state.isDone.value,
+                    checked = header.isDone,
                     onCheckedChange = onDoneChange,
-                    enabled = !state.isUpdating.value,
+                    enabled = !header.isUpdating,
                 )
             }
         }

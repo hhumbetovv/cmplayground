@@ -6,7 +6,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import az.theternal.cmplayground.feature.tasks.TasksViewModel
 import az.theternal.cmplayground.feature.tasks.contract.TasksEffect
 import az.theternal.cmplayground.feature.tasks.contract.rememberTasksActions
-import az.theternal.cmplayground.feature.tasks.contract.rememberTasksScreenState
 import org.orbitmvi.orbit.compose.collectAsState
 import org.orbitmvi.orbit.compose.collectSideEffect
 
@@ -15,9 +14,9 @@ import org.orbitmvi.orbit.compose.collectSideEffect
  *
  * The state is **not** read here, and that is the load-bearing detail:
  * `val uiState by viewModel.collectAsState()` would subscribe this composable to every state
- * change, so the whole screen would re-run on each keystroke and every derivation below it would
- * start from an already invalidated scope. Handed to [rememberTasksScreenState] as a `State` — which
- * does not read it either — this function composes once.
+ * change, so the whole screen would re-run on each keystroke and every projection below it would
+ * start from an already invalidated scope. Kept as a `State` and handed down, this function
+ * composes once.
  */
 @Composable
 fun TasksScreen(
@@ -34,7 +33,7 @@ fun TasksScreen(
     }
 
     TasksScreenContent(
-        state = rememberTasksScreenState(viewModel.collectAsState()),
+        state = viewModel.collectAsState(),
         actions = rememberTasksActions(viewModel::dispatch),
         modifier = modifier,
     )

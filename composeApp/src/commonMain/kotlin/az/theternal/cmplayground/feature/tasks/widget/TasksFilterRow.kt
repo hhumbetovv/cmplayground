@@ -11,38 +11,35 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
-import az.theternal.cmplayground.core.state.derive
+import az.theternal.cmplayground.core.state.map
+import az.theternal.cmplayground.core.state.read
 import az.theternal.cmplayground.feature.tasks.domain.TaskFilter
 import kotlinx.collections.immutable.ImmutableSet
 
-/**
- * A `State` field even though there is only one: the row must not recompose when the selection
- * changes, only the two chips that flipped.
- */
-@Stable
+@Immutable
 data class TasksFilterRowState(
-    val selected: State<ImmutableSet<TaskFilter>>,
+    val selected: ImmutableSet<TaskFilter>,
 ) : ComponentState
 
 private val ChipSpacing = 8.dp
 
 /**
- * The row reads nothing, so it composes once. Each chip derives its own `Boolean` from the
- * selection, so toggling a filter recomposes exactly two chips.
+ * Each chip narrows the row state down to its own `Boolean`, so toggling one filter recomposes
+ * exactly two chips — the one switched on and the one switched off — instead of the whole row.
  *
- * The derivation is `remember`ed per filter: it has to survive recomposition, and the selector
- * captures the filter it belongs to.
+ * The selector captures `filter`, which is precisely the case
+ * [az.theternal.cmplayground.core.state.map] handles by tracking the selector: no `key(...)`
+ * wrapper is needed to keep the derivations from going stale.
  */
 @Composable
 fun TasksFilterRow(
-    state: TasksFilterRowState,
+    state: State<TasksFilterRowState>,
     onFilterClick: (TaskFilter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -55,7 +52,7 @@ fun TasksFilterRow(
     ) {
         TaskFilter.entries.forEach { filter ->
             TasksFilterChip(
-                isSelected = remember(filter) { state.selected.derive { filter in this } },
+                isSelected = state.map { filter in selected },
                 label = filter.label,
                 onClick = { onFilterClick(filter) },
             )
@@ -69,7 +66,7 @@ private fun TasksFilterChip(
     label: String,
     onClick: () -> Unit,
 ) {
-    val selected = isSelected.value
+    val selected = isSelected.read()
 
     FilterChip(
         selected = selected,

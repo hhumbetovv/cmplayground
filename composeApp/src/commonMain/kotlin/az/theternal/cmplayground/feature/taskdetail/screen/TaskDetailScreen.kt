@@ -9,7 +9,6 @@ import az.theternal.cmplayground.core.mvi.collectUiEffects
 import az.theternal.cmplayground.feature.taskdetail.TaskDetailViewModel
 import az.theternal.cmplayground.feature.taskdetail.contract.TaskDetailActions
 import az.theternal.cmplayground.feature.taskdetail.contract.TaskDetailEffect
-import az.theternal.cmplayground.feature.taskdetail.contract.rememberTaskDetailScreenState
 
 /**
  * The non-Orbit seam, doing exactly what `TasksScreen` does: turn the holder's state into a
@@ -43,7 +42,7 @@ fun TaskDetailScreen(
     }
 
     TaskDetailScreenContent(
-        state = rememberTaskDetailScreenState(viewModel.state.collectAsStateWithLifecycle()),
+        state = viewModel.state.collectAsStateWithLifecycle(),
         actions = actions,
         modifier = modifier,
     )

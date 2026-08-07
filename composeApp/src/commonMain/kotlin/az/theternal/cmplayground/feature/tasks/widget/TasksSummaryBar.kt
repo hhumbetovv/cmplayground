@@ -8,35 +8,37 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
+import az.theternal.cmplayground.core.state.read
 
-/**
- * `State` fields, because the counters move independently — `doneCount` when a task is ticked,
- * `visibleCount` when the filter changes — and because `doneCount` is the one expensive projection
- * on this screen. Behind it is a derivation chained off `tasksById`, so it counts when the map
- * changes and not on every keystroke.
- */
-@Stable
+@Immutable
 data class TasksSummaryState(
-    val visibleCount: State<Int>,
-    val totalCount: State<Int>,
-    val doneCount: State<Int>,
-    val isFiltered: State<Boolean>,
+    val visibleCount: Int,
+    val totalCount: Int,
+    val doneCount: Int,
+    val isFiltered: Boolean,
 ) : ComponentState
 
 private val RowSpacing = 8.dp
 
+/**
+ * Counters are derived, never stored: the reducer keeps the task list and nothing else, and this
+ * projection is recomputed only when that list actually changes. Storing `doneCount` in the state
+ * class would mean a second place to keep in sync for no gain.
+ */
 @Composable
 fun TasksSummaryBar(
-    state: TasksSummaryState,
+    state: State<TasksSummaryState>,
     modifier: Modifier = Modifier,
 ) {
+    val summary = state.read()
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -49,15 +51,15 @@ fun TasksSummaryBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = if (state.isFiltered.value) {
-                    "${state.visibleCount.value} of ${state.totalCount.value} shown"
+                text = if (summary.isFiltered) {
+                    "${summary.visibleCount} of ${summary.totalCount} shown"
                 } else {
-                    "${state.totalCount.value} tasks"
+                    "${summary.totalCount} tasks"
                 },
                 style = MaterialTheme.typography.labelLarge,
             )
             Text(
-                text = "${state.doneCount.value} done",
+                text = "${summary.doneCount} done",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -65,8 +67,7 @@ fun TasksSummaryBar(
 
         LinearProgressIndicator(
             progress = {
-                val total = state.totalCount.value
-                if (total == 0) 0f else state.doneCount.value.toFloat() / total
+                if (summary.totalCount == 0) 0f else summary.doneCount.toFloat() / summary.totalCount
             },
             modifier = Modifier.fillMaxWidth(),
         )

@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
+import az.theternal.cmplayground.core.state.read
 import az.theternal.cmplayground.core.state.rememberTextInput
 import az.theternal.cmplayground.feature.tasks.domain.TaskPriority
 
@@ -82,7 +83,7 @@ fun TaskEditorSheet(
 ) {
     // A whole read is right here: the editor state IS the narrow slice, and the sheet only exists
     // while it is non-null.
-    val editor = state.value ?: return
+    val editor = state.read() ?: return
 
     val sheetState = rememberModalBottomSheetState()
     val uiState = remember { TaskEditorUiState() }

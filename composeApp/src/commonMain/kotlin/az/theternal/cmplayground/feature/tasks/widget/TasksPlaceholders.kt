@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
+import az.theternal.cmplayground.core.state.read
 
 @Immutable
 data class TasksErrorViewState(
@@ -59,7 +60,7 @@ fun TasksErrorView(
         verticalArrangement = Arrangement.spacedBy(PlaceholderSpacing, Alignment.CenterVertically),
     ) {
         Text(
-            text = state.value.message,
+            text = state.read { message },
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
         )
@@ -75,7 +76,7 @@ fun TasksEmptyView(
     onClearFiltersClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isFiltered = state.value.isFiltered
+    val isFiltered = state.read { isFiltered }
 
     Column(
         modifier = modifier
