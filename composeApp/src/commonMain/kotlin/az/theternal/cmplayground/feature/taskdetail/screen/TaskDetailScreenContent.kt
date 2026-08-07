@@ -22,7 +22,7 @@ import az.theternal.cmplayground.feature.taskdetail.contract.TaskDetailState
 import az.theternal.cmplayground.feature.taskdetail.widget.TaskDetailHeader
 import az.theternal.cmplayground.feature.taskdetail.widget.TaskDetailNoteCard
 import az.theternal.cmplayground.feature.tasks.domain.TaskPriority
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.Preview
 
 private val ScreenPadding = 16.dp
 private val SectionSpacing = 16.dp

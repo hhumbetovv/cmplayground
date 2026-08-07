@@ -26,7 +26,7 @@ import az.theternal.cmplayground.core.debug.LocalRecompositionHighlight
 import az.theternal.cmplayground.feature.taskdetail.screen.TaskDetailScreen
 import az.theternal.cmplayground.feature.tasks.screen.TasksScreen
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.Preview
 
 sealed interface PlaygroundRoute {
     data object Tasks : PlaygroundRoute
@@ -46,10 +46,7 @@ fun App() {
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
         val showMessage: (String) -> Unit = remember(scope, snackbarHostState) {
-            { message ->
-                scope.launch { snackbarHostState.showSnackbar(message) }
-                Unit
-            }
+            { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
         }
 
         CompositionLocalProvider(LocalRecompositionHighlight provides isHighlightEnabled) {

@@ -31,7 +31,7 @@ import az.theternal.cmplayground.feature.tasks.widget.TasksSearchField
 import az.theternal.cmplayground.feature.tasks.widget.TasksSummaryBar
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentList
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.Preview
 
 private val ScreenPadding = 16.dp
 private val SectionSpacing = 12.dp
