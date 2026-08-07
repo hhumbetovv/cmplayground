@@ -10,7 +10,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,16 +18,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
-import az.theternal.cmplayground.core.state.read
 
-@Immutable
+@Stable
 data class TasksErrorViewState(
-    val message: String,
+    val message: State<String>,
 ) : ComponentState
 
-@Immutable
+@Stable
 data class TasksEmptyViewState(
-    val isFiltered: Boolean,
+    val isFiltered: State<Boolean>,
 ) : ComponentState
 
 private val PlaceholderPadding = 32.dp
@@ -47,7 +46,7 @@ fun TasksLoadingView(modifier: Modifier = Modifier) {
 
 @Composable
 fun TasksErrorView(
-    state: State<TasksErrorViewState>,
+    state: TasksErrorViewState,
     onRetryClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -60,7 +59,7 @@ fun TasksErrorView(
         verticalArrangement = Arrangement.spacedBy(PlaceholderSpacing, Alignment.CenterVertically),
     ) {
         Text(
-            text = state.read { message },
+            text = state.message.value,
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
         )
@@ -72,11 +71,11 @@ fun TasksErrorView(
 
 @Composable
 fun TasksEmptyView(
-    state: State<TasksEmptyViewState>,
+    state: TasksEmptyViewState,
     onClearFiltersClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isFiltered = state.read { isFiltered }
+    val isFiltered = state.isFiltered.value
 
     Column(
         modifier = modifier

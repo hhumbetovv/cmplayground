@@ -1,10 +1,12 @@
 package az.theternal.cmplayground.feature.tasks.contract
 
 import androidx.compose.runtime.Stable
-import az.theternal.cmplayground.core.mvi.UiState
+import az.theternal.cmplayground.core.state.UiState
 import az.theternal.cmplayground.feature.tasks.domain.TaskFilter
+import az.theternal.cmplayground.feature.tasks.widget.TaskDeleteData
 import az.theternal.cmplayground.feature.tasks.widget.TaskDeleteDialogState
-import az.theternal.cmplayground.feature.tasks.widget.TaskEditorState
+import az.theternal.cmplayground.feature.tasks.widget.TaskEditorData
+import az.theternal.cmplayground.feature.tasks.widget.TaskEditorSheetState
 import az.theternal.cmplayground.feature.tasks.widget.TaskItemState
 import az.theternal.cmplayground.feature.tasks.widget.TaskListState
 import az.theternal.cmplayground.feature.tasks.widget.TasksEmptyViewState
@@ -22,69 +24,87 @@ import kotlinx.collections.immutable.persistentSetOf
 enum class TasksPhase { LOADING, ERROR, EMPTY, CONTENT }
 
 /**
- * One immutable state class for the screen, plus one projection function per component.
+ * The screen's state, as fields rather than as a value.
  *
- * The projections are what make a wide state class cheap to consume: a component receives the
- * result of exactly one of them, so it recomposes when that result stops being `equals` to the
- * previous one and at no other time.
+ * Three layers, in declaration order:
  *
- * The task list is **normalised** — order in [taskIds] / [visibleTaskIds], data in [tasksById] —
- * so that the two kinds of change stay separable. Editing one task rewrites one map entry and
- * leaves both id lists untouched, which is what lets the list component skip while the edited row
- * recomposes. A `List<TaskItemState>` cannot express that: any item edit produces a new list.
+ * 1. **fields** — the writable truth. Only [az.theternal.cmplayground.feature.tasks.TasksViewModel]
+ *    can write them, and only from inside a `reduceState { }` block — nothing else can obtain the
+ *    `StateWriter` that `set` and `update` are members of.
+ * 2. **derivations** — everything computable from the fields. Nothing here is stored, so nothing
+ *    here can disagree with the fields it came from.
+ * 3. **component states** — one per component, built once out of the `State` references above.
+ *    They are constructed with this object and never replaced, so a component's parameters are
+ *    fixed for the life of the screen and it recomposes only where it reads a `.value`.
  *
- * Component state classes live next to the component that renders them, not here — the component
- * owns the shape of its own input, this class only knows how to fill it.
- *
- * Nothing derived is stored: counts, `isFiltered`, phase — all computed in projections, so there
- * is no second copy of the truth to keep in sync.
+ * The task list is normalised — order in [taskIds] / [visibleTaskIds], data in [tasksById] — so
+ * that editing one task rewrites one map entry and leaves both id lists untouched. That is what
+ * lets the list component skip while the edited row recomposes.
  */
 @Stable
-data class TasksState(
-    val isLoading: Boolean = true,
-    val errorMessage: String? = null,
-    val query: String = "",
-    val filters: ImmutableSet<TaskFilter> = persistentSetOf(),
-    val taskIds: ImmutableList<String> = persistentListOf(),
-    val tasksById: ImmutableMap<String, TaskItemState> = persistentMapOf(),
-    val visibleTaskIds: ImmutableList<String> = persistentListOf(),
-    val canLoadMore: Boolean = false,
-    val isLoadingMore: Boolean = false,
-    val editor: TaskEditorState? = null,
-    val deleteTarget: TaskDeleteDialogState? = null,
-) : UiState {
+class TasksState : UiState() {
 
-    val isFiltered: Boolean get() = query.isNotBlank() || filters.isNotEmpty()
+    // region fields
 
-    fun phase(): TasksPhase = when {
-        isLoading -> TasksPhase.LOADING
-        errorMessage != null -> TasksPhase.ERROR
-        visibleTaskIds.isEmpty() -> TasksPhase.EMPTY
-        else -> TasksPhase.CONTENT
+    val isLoading = field(true)
+    val errorMessage = field<String?>(null)
+    val query = field("")
+    val filters = field<ImmutableSet<TaskFilter>>(persistentSetOf())
+    val taskIds = field<ImmutableList<String>>(persistentListOf())
+    val tasksById = field<ImmutableMap<String, TaskItemState>>(persistentMapOf())
+    val visibleTaskIds = field<ImmutableList<String>>(persistentListOf())
+    val canLoadMore = field(false)
+    val isLoadingMore = field(false)
+    val editor = field<TaskEditorData?>(null)
+    val deleteTarget = field<TaskDeleteData?>(null)
+
+    // endregion
+
+    // region derivations
+
+    val isFiltered = derived { query.value.isNotBlank() || filters.value.isNotEmpty() }
+
+    val phase = derived {
+        when {
+            isLoading.value -> TasksPhase.LOADING
+            errorMessage.value != null -> TasksPhase.ERROR
+            visibleTaskIds.value.isEmpty() -> TasksPhase.EMPTY
+            else -> TasksPhase.CONTENT
+        }
     }
 
-    fun searchFieldState(): TasksSearchFieldState = TasksSearchFieldState(
+    // endregion
+
+    // region component states
+
+    val searchField = TasksSearchFieldState(
         query = query,
-        isClearVisible = query.isNotEmpty(),
+        isClearVisible = derived { query.value.isNotEmpty() },
     )
 
-    fun filterRowState(): TasksFilterRowState = TasksFilterRowState(selected = filters)
+    val filterRow = TasksFilterRowState(selected = filters)
 
-    fun summaryState(): TasksSummaryState = TasksSummaryState(
-        visibleCount = visibleTaskIds.size,
-        totalCount = taskIds.size,
-        doneCount = tasksById.count { (_, task) -> task.isDone },
+    val summary = TasksSummaryState(
+        visibleCount = derived { visibleTaskIds.value.size },
+        totalCount = derived { taskIds.value.size },
+        doneCount = derived { tasksById.value.count { (_, task) -> task.isDone } },
         isFiltered = isFiltered,
     )
 
-    fun listState(): TaskListState = TaskListState(
+    val list = TaskListState(
         ids = visibleTaskIds,
         tasksById = tasksById,
         canLoadMore = canLoadMore,
         isLoadingMore = isLoadingMore,
     )
 
-    fun errorViewState(): TasksErrorViewState = TasksErrorViewState(message = errorMessage.orEmpty())
+    val errorView = TasksErrorViewState(message = derived { errorMessage.value.orEmpty() })
 
-    fun emptyViewState(): TasksEmptyViewState = TasksEmptyViewState(isFiltered = isFiltered)
+    val emptyView = TasksEmptyViewState(isFiltered = isFiltered)
+
+    val editorSheet = TaskEditorSheetState(editor = editor)
+
+    val deleteDialog = TaskDeleteDialogState(target = deleteTarget)
+
+    // endregion
 }

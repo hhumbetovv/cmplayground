@@ -11,13 +11,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import az.theternal.cmplayground.core.mvi.asUiState
-import az.theternal.cmplayground.core.state.map
-import az.theternal.cmplayground.core.state.read
+import az.theternal.cmplayground.core.state.preview
 import az.theternal.cmplayground.feature.taskdetail.contract.TaskDetailActions
 import az.theternal.cmplayground.feature.taskdetail.contract.TaskDetailPhase
 import az.theternal.cmplayground.feature.taskdetail.contract.TaskDetailState
@@ -31,7 +29,7 @@ private val SectionSpacing = 16.dp
 
 @Composable
 fun TaskDetailScreenContent(
-    state: State<TaskDetailState>,
+    state: TaskDetailState,
     actions: TaskDetailActions,
     modifier: Modifier = Modifier,
 ) {
@@ -45,7 +43,7 @@ fun TaskDetailScreenContent(
             Text("← Back to tasks")
         }
 
-        when (state.read { phase() }) {
+        when (state.phase.value) {
             TaskDetailPhase.LOADING -> Box(
                 modifier = Modifier.fillMaxSize().weight(1f),
                 contentAlignment = Alignment.Center,
@@ -58,19 +56,13 @@ fun TaskDetailScreenContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(SectionSpacing, Alignment.CenterVertically),
             ) {
-                Text(
-                    text = state.read { errorMessage.orEmpty() },
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                Text(text = state.error.value, style = MaterialTheme.typography.bodyLarge)
                 Button(onClick = actions.onRetryClick) { Text("Retry") }
             }
 
             TaskDetailPhase.CONTENT -> {
-                TaskDetailHeader(
-                    state = state.map { headerState() },
-                    onDoneChange = actions.onDoneChange,
-                )
-                TaskDetailNoteCard(state = state.map { noteState() })
+                TaskDetailHeader(state = state.header, onDoneChange = actions.onDoneChange)
+                TaskDetailNoteCard(state = state.noteCard)
             }
         }
     }
@@ -79,12 +71,12 @@ fun TaskDetailScreenContent(
 @Preview
 @Composable
 private fun TaskDetailScreenContentPreview() {
-    val state = TaskDetailState(
-        isLoading = false,
-        title = "Split the state class per component",
-        note = "One projection per component, one component state class per widget.",
-        priority = TaskPriority.HIGH,
-    )
+    val state = remember { TaskDetailState() }.preview {
+        state.isLoading.set(false)
+        state.title.set("Split the state class per component")
+        state.note.set("One field per thing that changes, one component state per component.")
+        state.priority.set(TaskPriority.HIGH)
+    }
 
-    TaskDetailScreenContent(state = state.asUiState(), actions = TaskDetailActions())
+    TaskDetailScreenContent(state = state, actions = TaskDetailActions())
 }

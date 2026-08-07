@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -28,35 +28,42 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
-import az.theternal.cmplayground.core.state.FieldOwner
-import az.theternal.cmplayground.core.state.FieldState
-import az.theternal.cmplayground.core.state.read
+import az.theternal.cmplayground.core.state.UiState
 import az.theternal.cmplayground.core.state.rememberTextInput
 import az.theternal.cmplayground.feature.tasks.domain.TaskPriority
 
+/**
+ * The form's contents, kept as one immutable value inside a single field rather than as fields of
+ * their own: the editor is created, filled and discarded as a unit, and nothing outside the sheet
+ * reads a part of it. Splitting it would buy granularity no component asks for.
+ */
 @Immutable
-data class TaskEditorState(
+data class TaskEditorData(
     val taskId: String?,
     val title: String,
     val note: String,
     val priority: TaskPriority,
     val isSaving: Boolean,
     val titleError: String?,
-) : ComponentState {
+) {
     val isEditing: Boolean get() = taskId != null
     val isSubmitEnabled: Boolean get() = title.isNotBlank() && !isSaving
 }
 
+@Stable
+data class TaskEditorSheetState(
+    val editor: State<TaskEditorData?>,
+) : ComponentState
+
 /**
- * The half of the editor that the reducer has no business knowing about: whether the optional note
- * section is unfolded. It dies with the sheet, never reaches the repository, and would only add a
- * field and an intent to the screen contract.
+ * The half of the editor the state holder has no business knowing about: whether the optional note
+ * section is unfolded. It dies with the sheet and never reaches the repository.
  *
- * This is [FieldState] in its intended role — UI-owned state next to reduced state, not instead
- * of it.
+ * Same machinery as the screen state — a [UiState] whose owner is the only writer — just owned by
+ * the UI instead of the ViewModel.
  */
 @Stable
-class TaskEditorUiState : FieldState(), FieldOwner {
+class TaskEditorUiState : UiState() {
     val isNoteExpanded = field(false)
 
     fun toggleNote() = isNoteExpanded.update { !this }
@@ -71,16 +78,14 @@ private val ProgressStroke = 2.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskEditorSheet(
-    state: State<TaskEditorState?>,
+    state: TaskEditorSheetState,
     onTitleChange: (String) -> Unit,
     onNoteChange: (String) -> Unit,
     onPriorityChange: (TaskPriority) -> Unit,
     onSubmitClick: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
-    // A whole read is right here: the editor state IS the narrow slice, and the sheet only exists
-    // while it is non-null.
-    val editor = state.read() ?: return
+    val editor = state.editor.value ?: return
 
     val sheetState = rememberModalBottomSheetState()
     val uiState = remember { TaskEditorUiState() }

@@ -3,7 +3,6 @@ package az.theternal.cmplayground.feature.taskdetail.screen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import az.theternal.cmplayground.core.mvi.collectUiEffects
 import az.theternal.cmplayground.feature.taskdetail.TaskDetailViewModel
@@ -11,12 +10,11 @@ import az.theternal.cmplayground.feature.taskdetail.contract.TaskDetailActions
 import az.theternal.cmplayground.feature.taskdetail.contract.TaskDetailEffect
 
 /**
- * The non-Orbit seam, doing exactly what `TasksScreen` does: turn the holder's state into a
- * `State<S>`, forward its effects, bind its actions. Only the two calls differ —
- * `collectAsStateWithLifecycle()` instead of Orbit's `collectAsState()`, and a plain effect flow
- * instead of Orbit side effects.
+ * The non-Orbit seam, doing exactly what `TasksScreen` does: hand the state holder down, forward
+ * effects, bind actions. Only the effect collector differs — Orbit ships its own, a plain `Flow`
+ * does not.
  *
- * As in `TasksScreen`, the state is not read here.
+ * As in `TasksScreen`, no state is read here.
  */
 @Composable
 fun TaskDetailScreen(
@@ -42,7 +40,7 @@ fun TaskDetailScreen(
     }
 
     TaskDetailScreenContent(
-        state = viewModel.state.collectAsStateWithLifecycle(),
+        state = viewModel.state,
         actions = actions,
         modifier = modifier,
     )
