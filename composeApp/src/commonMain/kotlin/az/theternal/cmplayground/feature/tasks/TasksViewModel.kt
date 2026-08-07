@@ -1,8 +1,7 @@
 package az.theternal.cmplayground.feature.tasks
 
 import androidx.lifecycle.ViewModel
-import az.theternal.cmplayground.core.state.StateWriter
-import az.theternal.cmplayground.core.state.reduceState
+import az.theternal.cmplayground.core.state.snapshot
 import az.theternal.cmplayground.feature.tasks.contract.TasksEffect
 import az.theternal.cmplayground.feature.tasks.contract.TasksIntent
 import az.theternal.cmplayground.feature.tasks.contract.TasksState
@@ -33,27 +32,28 @@ private const val UNKNOWN_ERROR = "Something went wrong."
 private const val EMPTY_TITLE_ERROR = "Title cannot be empty."
 
 /**
- * Orbit still owns the plumbing — intents are serialised on its event loop, effects go through
- * `postSideEffect`, the container is the state's home — but the state itself is a field holder, so
- * an intent writes the fields it changed instead of rebuilding the screen's state.
+ * Orbit owns the plumbing exactly as it ships: intents are serialised on its event loop, effects go
+ * through `postSideEffect`, and the state lives in the container. The only difference from a
+ * reducing ViewModel is what the state is — a holder of fields rather than a value — so `reduce`
+ * writes fields and hands the same holder back.
  *
- * The container's state never changes identity, so nothing collects it. The UI reads the fields,
- * and Compose's snapshot system delivers each write to exactly the composables that read it. That
- * is why there is no `reduce` here: there is nothing to reduce into.
+ * The holder's identity never changes, so nothing collects it. The UI reads the fields, and
+ * Compose's snapshot system delivers each write to exactly the composables that read it.
  *
- * This class declares nothing beyond `ViewModel` and `ContainerHost`. Writes go through
- * `reduceState { }`, a `ViewModel` extension that puts a [StateWriter] in scope for the block and
- * applies everything inside it as one snapshot.
+ * This class declares nothing beyond `ViewModel` and `ContainerHost`. `set` is available inside it
+ * because it takes a `ViewModel` context parameter — outside a ViewModel it does not resolve at
+ * all.
  */
 class TasksViewModel(
     private val repository: TaskRepository = FakeTaskRepository,
 ) : ViewModel(), ContainerHost<TasksState, TasksEffect> {
 
-    val state = TasksState()
+    /** What the UI reads. The holder is the container's state and never changes identity. */
+    val state: TasksState get() = container.stateFlow.value
 
     override val container: Container<TasksState, TasksEffect> =
         container(
-            initialState = state,
+            initialState = TasksState(),
             onCreate = { loadPage(page = 0, replace = true) },
         )
 
@@ -83,9 +83,11 @@ class TasksViewModel(
     // region loading
 
     private fun refresh() = intent {
-        reduceState {
-            state.isLoading.set(true)
-            state.errorMessage.set(null)
+        reduce {
+            state.snapshot {
+                isLoading.snapshot(true)
+                errorMessage.snapshot(null)
+            }
         }
         loadPage(page = 0, replace = true)
     }
@@ -95,15 +97,20 @@ class TasksViewModel(
             return@intent
         }
 
-        reduceState { state.isLoadingMore.set(true) }
+        reduce {
+            state.isLoadingMore.snapshot(true)
+            state
+        }
         loadPage(page = state.taskIds.value.size / repository.pageSize, replace = false)
     }
 
     private fun simulateFailure() = intent {
         repository.failNextLoad()
-        reduceState {
-            state.isLoading.set(true)
-            state.errorMessage.set(null)
+        reduce {
+            state.snapshot {
+                isLoading.snapshot(true)
+                errorMessage.snapshot(null)
+            }
         }
         loadPage(page = 0, replace = true)
     }
@@ -112,22 +119,26 @@ class TasksViewModel(
         runCatching { repository.loadPage(page) }
             .onSuccess { loaded ->
                 val items = loaded.tasks.map { it.toItemState() }
-                reduceState {
-                    mergePage(items, replace = replace)
-                    state.canLoadMore.set(loaded.hasMore)
-                    state.isLoading.set(false)
-                    state.isLoadingMore.set(false)
-                    state.errorMessage.set(null)
+                reduce {
+                    state.snapshot {
+                        mergePage(items, replace = replace)
+                        canLoadMore.snapshot(loaded.hasMore)
+                        isLoading.snapshot(false)
+                        isLoadingMore.snapshot(false)
+                        errorMessage.snapshot(null)
+                    }
                 }
                 applyFilters()
             }
             .onFailure { error ->
                 val message = error.message ?: UNKNOWN_ERROR
-                reduceState {
-                    state.isLoading.set(false)
-                    state.isLoadingMore.set(false)
-                    // A failed "load more" must not blank out the page already on screen.
-                    if (replace) state.errorMessage.set(message)
+                reduce {
+                    state.snapshot {
+                        isLoading.snapshot(false)
+                        isLoadingMore.snapshot(false)
+                        // A failed "load more" must not blank out the page already on screen.
+                        if (replace) errorMessage.snapshot(message)
+                    }
                 }
                 if (!replace) postSideEffect(TasksEffect.ShowMessage(message))
             }
@@ -138,27 +149,33 @@ class TasksViewModel(
     // region query & filters
 
     private fun changeQuery(query: String) = intent {
-        reduceState { state.query.set(query) }
+        reduce {
+            state.query.snapshot(query)
+            state
+        }
         applyFilters()
     }
 
     private fun toggleFilter(filter: TaskFilter) = intent {
-        reduceState {
-            state.filters.update {
+        reduce {
+            state.filters.snapshot {
                 if (filter in this) {
                     (this - filter).toPersistentSet()
                 } else {
                     (this + filter).toPersistentSet()
                 }
             }
+            state
         }
         applyFilters()
     }
 
     private fun clearFilters() = intent {
-        reduceState {
-            state.query.set("")
-            state.filters.set(persistentSetOf())
+        reduce {
+            state.snapshot {
+                query.snapshot("")
+                filters.snapshot(persistentSetOf())
+            }
         }
         applyFilters()
     }
@@ -183,7 +200,12 @@ class TasksViewModel(
             state.query.value != query ||
             state.filters.value != filters
 
-        if (!isStale) reduceState { state.visibleTaskIds.set(visible) }
+        if (!isStale) {
+            reduce {
+                state.visibleTaskIds.snapshot(visible)
+                state
+            }
+        }
     }
 
     // endregion
@@ -195,15 +217,24 @@ class TasksViewModel(
     }
 
     private fun changeTaskDone(id: String, isDone: Boolean) = intent {
-        reduceState { putTask(id) { copy(isBusy = true) } }
+        reduce {
+            state.putTask(id) { copy(isBusy = true) }
+            state
+        }
 
         runCatching { repository.setDone(id, isDone) }
             .onSuccess { task ->
-                reduceState { putTask(id) { task.toItemState() } }
+                reduce {
+            state.putTask(id) { task.toItemState() }
+            state
+        }
                 applyFilters()
             }
             .onFailure { error ->
-                reduceState { putTask(id) { copy(isBusy = false) } }
+                reduce {
+            state.putTask(id) { copy(isBusy = false) }
+            state
+        }
                 postSideEffect(TasksEffect.ShowMessage(error.message ?: UNKNOWN_ERROR))
             }
     }
@@ -214,8 +245,8 @@ class TasksViewModel(
 
     private fun openEditor(taskId: String?) = intent {
         val task = taskId?.let { state.tasksById.value[it] }
-        reduceState {
-            state.editor.set(
+        reduce {
+            state.editor.snapshot(
                 TaskEditorData(
                     taskId = task?.id,
                     title = task?.title.orEmpty(),
@@ -225,34 +256,53 @@ class TasksViewModel(
                     titleError = null,
                 ),
             )
+            state
         }
     }
 
     private fun changeEditorTitle(title: String) = intent {
-        reduceState { state.editor.update { this?.copy(title = title, titleError = null) } }
+        reduce {
+            state.editor.snapshot { this?.copy(title = title, titleError = null) }
+            state
+        }
     }
 
     private fun changeEditorNote(note: String) = intent {
-        reduceState { state.editor.update { this?.copy(note = note) } }
+        reduce {
+            state.editor.snapshot { this?.copy(note = note) }
+            state
+        }
     }
 
     private fun changeEditorPriority(priority: TaskPriority) = intent {
-        reduceState { state.editor.update { this?.copy(priority = priority) } }
+        reduce {
+            state.editor.snapshot { this?.copy(priority = priority) }
+            state
+        }
     }
 
     private fun dismissEditor() = intent {
-        reduceState { state.editor.set(null) }
+        reduce {
+            state.editor.snapshot(null)
+            state
+        }
     }
 
     private fun submitEditor() = intent {
         val current = state.editor.value ?: return@intent
 
         if (current.title.isBlank()) {
-            reduceState { state.editor.set(current.copy(titleError = EMPTY_TITLE_ERROR)) }
+            reduce {
+                state.editor.snapshot(current.copy(titleError = EMPTY_TITLE_ERROR))
+                state
+            }
             return@intent
         }
 
-        reduceState { state.editor.set(current.copy(isSaving = true)) }
+        reduce {
+            state.editor.snapshot(current.copy(isSaving = true))
+            state
+        }
 
         val draft = TaskDraft(
             id = current.taskId,
@@ -263,9 +313,11 @@ class TasksViewModel(
 
         runCatching { repository.save(draft) }
             .onSuccess { saved ->
-                reduceState {
-                    state.editor.set(null)
-                    upsertTask(saved.toItemState())
+                reduce {
+                    state.snapshot {
+                        editor.snapshot(null)
+                        upsertTask(saved.toItemState())
+                    }
                 }
                 applyFilters()
                 postSideEffect(
@@ -273,7 +325,10 @@ class TasksViewModel(
                 )
             }
             .onFailure { error ->
-                reduceState { state.editor.update { this?.copy(isSaving = false) } }
+                reduce {
+                    state.editor.snapshot { this?.copy(isSaving = false) }
+                    state
+                }
                 postSideEffect(TasksEffect.ShowMessage(error.message ?: UNKNOWN_ERROR))
             }
     }
@@ -284,31 +339,43 @@ class TasksViewModel(
 
     private fun requestDelete(id: String) = intent {
         val task = state.tasksById.value[id] ?: return@intent
-        reduceState {
-            state.deleteTarget.set(
+        reduce {
+            state.deleteTarget.snapshot(
                 TaskDeleteData(taskId = task.id, title = task.title, isDeleting = false),
             )
+            state
         }
     }
 
     private fun dismissDelete() = intent {
-        reduceState { state.deleteTarget.set(null) }
+        reduce {
+            state.deleteTarget.snapshot(null)
+            state
+        }
     }
 
     private fun confirmDelete() = intent {
         val target = state.deleteTarget.value ?: return@intent
-        reduceState { state.deleteTarget.set(target.copy(isDeleting = true)) }
+        reduce {
+            state.deleteTarget.snapshot(target.copy(isDeleting = true))
+            state
+        }
 
         runCatching { repository.delete(target.taskId) }
             .onSuccess {
-                reduceState {
-                    state.deleteTarget.set(null)
-                    removeTask(target.taskId)
+                reduce {
+                    state.snapshot {
+                        deleteTarget.snapshot(null)
+                        removeTask(target.taskId)
+                    }
                 }
                 postSideEffect(TasksEffect.ShowMessage("Task deleted."))
             }
             .onFailure { error ->
-                reduceState { state.deleteTarget.update { this?.copy(isDeleting = false) } }
+                reduce {
+                    state.deleteTarget.snapshot { this?.copy(isDeleting = false) }
+                    state
+                }
                 postSideEffect(TasksEffect.ShowMessage(error.message ?: UNKNOWN_ERROR))
             }
     }
@@ -323,31 +390,31 @@ class TasksViewModel(
      * identity the list is keyed by, so a duplicate would be a crash — the merge drops ids it
      * already has, while still refreshing the data behind every id it received.
      */
-    private fun StateWriter.mergePage(items: List<TaskItemState>, replace: Boolean) {
-        val currentIds = if (replace) persistentListOf() else state.taskIds.value
-        val currentById = if (replace) persistentMapOf() else state.tasksById.value
+    private fun TasksState.mergePage(items: List<TaskItemState>, replace: Boolean) {
+        val currentIds = if (replace) persistentListOf() else taskIds.value
+        val currentById = if (replace) persistentMapOf() else tasksById.value
         val knownIds = currentIds.toHashSet()
 
-        state.taskIds.set(
+        taskIds.snapshot(
             (currentIds + items.map { it.id }.filterNot { it in knownIds }).toPersistentList(),
         )
-        state.tasksById.set(currentById.toPersistentMap().putAll(items.associateBy { it.id }))
+        tasksById.snapshot(currentById.toPersistentMap().puttingAll(items.associateBy { it.id }))
     }
 
     /** Rewrites one map entry; both id lists keep their value, so the list component skips. */
-    private fun StateWriter.putTask(id: String, transform: TaskItemState.() -> TaskItemState) {
-        val task = state.tasksById.value[id] ?: return
-        state.tasksById.set(state.tasksById.value.toPersistentMap().put(id, task.transform()))
+    private fun TasksState.putTask(id: String, transform: TaskItemState.() -> TaskItemState) {
+        val task = tasksById.value[id] ?: return
+        tasksById.snapshot(tasksById.value.toPersistentMap().putting(id, task.transform()))
     }
 
-    private fun StateWriter.upsertTask(item: TaskItemState) {
-        if (state.tasksById.value.containsKey(item.id)) {
+    private fun TasksState.upsertTask(item: TaskItemState) {
+        if (tasksById.value.containsKey(item.id)) {
             putTask(item.id) { item }
         } else {
-            state.taskIds.set(
-                state.taskIds.value.toPersistentList().add(index = 0, element = item.id),
+            taskIds.snapshot(
+                taskIds.value.toPersistentList().addingAt(index = 0, element = item.id),
             )
-            state.tasksById.set(state.tasksById.value.toPersistentMap().put(item.id, item))
+            tasksById.snapshot(tasksById.value.toPersistentMap().putting(item.id, item))
         }
     }
 
@@ -355,10 +422,10 @@ class TasksViewModel(
      * Drops the id from every list in the same snapshot as the entry itself, so no composition ever
      * sees an id whose task is already gone.
      */
-    private fun StateWriter.removeTask(id: String) {
-        state.taskIds.set(state.taskIds.value.toPersistentList().remove(id))
-        state.visibleTaskIds.set(state.visibleTaskIds.value.toPersistentList().remove(id))
-        state.tasksById.set(state.tasksById.value.toPersistentMap().remove(id))
+    private fun TasksState.removeTask(id: String) {
+        taskIds.snapshot(taskIds.value.toPersistentList().removing(id))
+        visibleTaskIds.snapshot(visibleTaskIds.value.toPersistentList().removing(id))
+        tasksById.snapshot(tasksById.value.toPersistentMap().removing(id))
     }
 
     // endregion

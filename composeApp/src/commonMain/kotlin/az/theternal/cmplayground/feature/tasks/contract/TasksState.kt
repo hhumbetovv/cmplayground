@@ -29,8 +29,8 @@ enum class TasksPhase { LOADING, ERROR, EMPTY, CONTENT }
  * Three layers, in declaration order:
  *
  * 1. **fields** — the writable truth. Only [az.theternal.cmplayground.feature.tasks.TasksViewModel]
- *    can write them, and only from inside a `reduceState { }` block — nothing else can obtain the
- *    `StateWriter` that `set` and `update` are members of.
+ *    can write them: `set` takes a `ViewModel` context parameter, so it does not resolve outside
+ *    one, and every write goes through Orbit's `reduce`.
  * 2. **derivations** — everything computable from the fields. Nothing here is stored, so nothing
  *    here can disagree with the fields it came from.
  * 3. **component states** — one per component, built once out of the `State` references above.

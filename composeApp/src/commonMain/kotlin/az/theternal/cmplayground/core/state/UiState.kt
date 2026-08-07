@@ -5,7 +5,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.structuralEqualityPolicy
 
 /**
@@ -41,12 +40,13 @@ import androidx.compose.runtime.structuralEqualityPolicy
  * class TaskEditorUiState : UiState() {
  *     val isNoteExpanded = field(false)
  *
- *     fun toggleNote() = isNoteExpanded.update { !this }
+ *     fun toggleNote() = isNoteExpanded.set { !this }
  * }
  * ```
  *
- * A state class owned by someone else — a screen state owned by its ViewModel — is written inside
- * a [reduceState] block, which is the only other place with access.
+ * A state class owned by someone else — a screen state owned by its ViewModel — is written through
+ * the context-parameter `set` functions in `StateWrites.kt`, which only resolve where a `ViewModel`
+ * is in context.
  *
  * Rules that keep this sound:
  * - immutable values in fields (immutable collections, data classes) — the field is the mutable
@@ -77,12 +77,8 @@ abstract class UiState {
     protected fun <T> derived(calculation: () -> T): State<T> =
         derivedStateOf(structuralEqualityPolicy(), calculation)
 
+    /** Writes to a holder's own fields, for state that owns itself — see the class docs. */
     protected fun <T> Field<T>.set(value: T) = write(value)
 
-    protected fun <T> Field<T>.update(producer: T.() -> T) = write(value.producer())
-
-    /** Applies several writes to this holder's own fields as one atomic snapshot change. */
-    protected fun reduceState(block: () -> Unit) {
-        Snapshot.withMutableSnapshot(block)
-    }
+    protected fun <T> Field<T>.set(producer: T.() -> T) = write(value.producer())
 }

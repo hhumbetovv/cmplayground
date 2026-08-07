@@ -66,7 +66,7 @@ data class TaskEditorSheetState(
 class TaskEditorUiState : UiState() {
     val isNoteExpanded = field(false)
 
-    fun toggleNote() = isNoteExpanded.update { !this }
+    fun toggleNote() = isNoteExpanded.set { !this }
 }
 
 private val SheetPadding = 20.dp
