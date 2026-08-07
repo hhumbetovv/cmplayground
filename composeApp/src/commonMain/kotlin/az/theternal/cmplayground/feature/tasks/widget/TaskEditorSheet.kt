@@ -22,15 +22,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.cmplayground.core.debug.trackRecompositions
 import az.theternal.cmplayground.core.mvi.ComponentState
-import az.theternal.cmplayground.core.state.FieldOwner
-import az.theternal.cmplayground.core.state.FieldState
-import az.theternal.cmplayground.core.state.read
 import az.theternal.cmplayground.core.state.rememberTextInput
 import az.theternal.cmplayground.feature.tasks.domain.TaskPriority
 
@@ -52,14 +52,16 @@ data class TaskEditorState(
  * section is unfolded. It dies with the sheet, never reaches the repository, and would only add a
  * field and an intent to the screen contract.
  *
- * This is [FieldState] in its intended role — UI-owned state next to reduced state, not instead
- * of it.
+ * State the UI owns needs no framework — `private set` is the whole ownership story.
  */
 @Stable
-class TaskEditorUiState : FieldState(), FieldOwner {
-    val isNoteExpanded = field(false)
+class TaskEditorUiState {
+    var isNoteExpanded by mutableStateOf(false)
+        private set
 
-    fun toggleNote() = isNoteExpanded.update { !this }
+    fun toggleNote() {
+        isNoteExpanded = !isNoteExpanded
+    }
 }
 
 private val SheetPadding = 20.dp
@@ -80,7 +82,7 @@ fun TaskEditorSheet(
 ) {
     // A whole read is right here: the editor state IS the narrow slice, and the sheet only exists
     // while it is non-null.
-    val editor = state.read() ?: return
+    val editor = state.value ?: return
 
     val sheetState = rememberModalBottomSheetState()
     val uiState = remember { TaskEditorUiState() }
@@ -128,10 +130,10 @@ fun TaskEditorSheet(
             }
 
             TextButton(onClick = uiState::toggleNote) {
-                Text(if (uiState.isNoteExpanded.value) "Hide note" else "Add a note")
+                Text(if (uiState.isNoteExpanded) "Hide note" else "Add a note")
             }
 
-            AnimatedVisibility(visible = uiState.isNoteExpanded.value) {
+            AnimatedVisibility(visible = uiState.isNoteExpanded) {
                 OutlinedTextField(
                     value = noteInput.value,
                     onValueChange = noteInput::onValueChange,

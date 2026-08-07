@@ -1,64 +1,43 @@
 package az.theternal.cmplayground.core.state
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.structuralEqualityPolicy
 
 /**
- * Narrows a state holder to a slice **without reading it here**.
+ * Narrows one `State` into another without reading it.
  *
- * This is the "pass it down" half of the model: the returned [State] is read at its point of use,
- * so the caller does not subscribe to the source and does not recompose when unrelated parts of
- * the screen state change.
+ * This is the only piece of state machinery in the project. Everything the UI receives is built out
+ * of it, once, in a screen's `rememberXxxScreenState`.
+ *
+ * ### The two-layer rule
  *
  * ```
- * // parent: does not recompose when `query` changes
- * TasksSearchField(state = state.map { searchFieldState() }, ...)
+ * // layer 1 — one trivial selector per field of the screen state
+ * val tasksById = source.derive { tasksById }
+ *
+ * // layer 2 — real work, chained off layer 1 and never off `source`
+ * val doneCount = tasksById.derive { count { (_, task) -> task.isDone } }
  * ```
  *
- * The selector is a receiver lambda (`map { searchFieldState() }`, not `map { it.searchFieldState() }`).
+ * A derivation that reads another derivation is not recomputed while its input's value is
+ * unchanged, so `doneCount` runs when the map changes and not when a keystroke changes the query.
+ * Chain it off `source` instead and it runs on every change — measured in `DerivationChainTest`.
  *
- * Two deliberate implementation choices:
- * - the derivation is keyed on the source holder only, and the selector is tracked through
- *   [rememberUpdatedState]. A selector that captures something (a loop index, a row id) therefore
- *   re-derives instead of going stale, and no `key(...)` wrapper is needed at the call site. A
- *   non-capturing selector is a compiler singleton, so the common case costs nothing;
- * - [structuralEqualityPolicy] is explicit: component states are rebuilt on every derivation, and
- *   `equals` — not identity — is what must decide whether the consumer recomposes.
- */
-@Composable
-fun <T, R> State<T>.map(selector: T.() -> R): State<R> {
-    val currentSelector by rememberUpdatedState(selector)
-    return remember(this) {
-        derivedStateOf(structuralEqualityPolicy()) { currentSelector(value) }
-    }
-}
-
-/**
- * Reads one slice **here**. Recomposes the calling component only when the selected value changes.
+ * Two cases may read `source` directly:
+ * - a **single-field selector** (layer 1), which is what makes the chaining possible;
+ * - a **cheap derivation that genuinely depends on several fields**, such as `phase()`. Splitting
+ *   that into layer-1 states would duplicate the rule it encodes; re-running a `when` over three
+ *   fields is not worth it.
  *
- * This is [map] followed by a read, which is the whole mental model: `map` to pass down, `read` to
- * consume.
- */
-@Composable
-fun <T, R> State<T>.read(selector: T.() -> R): R = map(selector).value
-
-/**
- * Reads the whole holder. Recomposes on every change of it, so only call it where the holder is
- * already narrow enough — typically on a component state that a [map] chain produced.
- */
-fun <T> State<T>.read(): T = value
-
-/**
- * Non-composable counterpart of [map], for derivations built outside composition (a state holder
- * exposing a computed field, a [FieldState] combining two of its own fields).
+ * Anything that filters, counts, sorts or allocates belongs in layer 2, chained.
  *
- * Inside composition use [map]: it remembers the derivation instead of allocating a new one per
- * recomposition.
+ * ### Where to call it
+ *
+ * Inside a `remember`, so the derivation outlives the composition pass. A derivation created at a
+ * call site is rebuilt on every recomposition and caches nothing.
+ *
+ * The selector is a receiver lambda: `derive { tasksById }`, not `derive { it.tasksById }`.
  */
 fun <T, R> State<T>.derive(selector: T.() -> R): State<R> =
     derivedStateOf(structuralEqualityPolicy()) { selector(value) }

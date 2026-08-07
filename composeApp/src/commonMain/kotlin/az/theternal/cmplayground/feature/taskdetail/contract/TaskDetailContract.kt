@@ -4,15 +4,13 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import az.theternal.cmplayground.core.mvi.UiEffect
 import az.theternal.cmplayground.core.mvi.UiState
-import az.theternal.cmplayground.feature.taskdetail.widget.TaskDetailHeaderState
-import az.theternal.cmplayground.feature.taskdetail.widget.TaskDetailNoteState
 import az.theternal.cmplayground.feature.tasks.domain.TaskPriority
 
 enum class TaskDetailPhase { LOADING, ERROR, CONTENT }
 
 /**
- * Same shape as `TasksState` — immutable class, projection per component — but reduced by a plain
- * `MutableStateFlow` ViewModel with no MVI library involved.
+ * Same shape as `TasksState` — an immutable class, reduced by a plain `MutableStateFlow` ViewModel
+ * with no MVI library involved.
  *
  * That is the point of this screen: the contract the UI consumes does not change with the
  * architecture behind it.
@@ -33,15 +31,6 @@ data class TaskDetailState(
         errorMessage != null -> TaskDetailPhase.ERROR
         else -> TaskDetailPhase.CONTENT
     }
-
-    fun headerState(): TaskDetailHeaderState = TaskDetailHeaderState(
-        title = title,
-        priority = priority,
-        isDone = isDone,
-        isUpdating = isUpdating,
-    )
-
-    fun noteState(): TaskDetailNoteState = TaskDetailNoteState(note = note)
 }
 
 sealed interface TaskDetailEffect : UiEffect {
