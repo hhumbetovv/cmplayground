@@ -30,3 +30,6 @@ dependencyResolutionManagement {
 include(":androidApp")
 include(":shared")
 include("feature:post-api")
+include("feature:post-impl")
+include("feature:profile-api")
+include("feature:profile-impl")
