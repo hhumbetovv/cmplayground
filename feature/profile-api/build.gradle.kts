@@ -22,4 +22,5 @@ kotlin {
             isStatic = true
         }
     }
+
 }

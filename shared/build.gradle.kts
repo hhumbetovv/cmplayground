@@ -39,6 +39,10 @@ kotlin {
             implementation(libs.compose.uiTooling)
         }
         commonMain.dependencies {
+            implementation(projects.feature.postApi)
+            implementation(projects.feature.postImpl)
+            implementation(projects.feature.profileImpl)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
