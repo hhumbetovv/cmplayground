@@ -1,3 +1,16 @@
+# CMPlayground — MVI patterns
+
+This branch (`feat/mvi-patterns`) holds MVI at four levels of complexity, with rules for choosing a level and
+moving between levels. Read [`docs/mvi-patterns.md`](docs/mvi-patterns.md).
+
+- `mvi/` is the runtime: `Store`, `Logic`, `ActionLogic` with policies, `Slice`, `MachineLogic` (over
+  dev.klitsie.statemachine), `ContentState`, and the Compose helpers.
+- `samples/` has one sample per level, sign-in written at three levels, and a feed with component
+  ViewModels. Each has tests in `samples/src/commonTest`.
+- Tests: `./gradlew :mvi:jvmTest :samples:jvmTest`. The app opens on the samples catalog.
+
+---
+
 This is a Kotlin Multiplatform project targeting Android, iOS.
 
 * [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
