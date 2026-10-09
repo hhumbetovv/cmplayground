@@ -1,9 +1,12 @@
 package az.theternal.samples.createpost
 
+import androidx.lifecycle.SavedStateHandle
 import az.theternal.mvi.Logic
 import az.theternal.mvi.Slice
 import az.theternal.mvi.StoreScope
 import az.theternal.mvi.StoreViewModel
+import az.theternal.mvi.keeper
+import az.theternal.mvi.setState
 import az.theternal.mvi.slice
 import az.theternal.samples.createpost.body.BodyLogic
 import az.theternal.samples.createpost.poll.PollLogic
@@ -14,6 +17,7 @@ import az.theternal.samples.createpost.tags.TagsEffect
 import az.theternal.samples.createpost.tags.TagsLogic
 import az.theternal.samples.createpost.tags.TagsState
 import az.theternal.samples.data.PostRepository
+import kotlinx.serialization.Serializable
 
 /**
  * Level 4: a screen made of slices, each at the level it needs — body and poll at 1, tags at 2, publishing
@@ -21,6 +25,10 @@ import az.theternal.samples.data.PostRepository
  * - routing: which intent goes to which slice;
  * - the rules that span slices: nothing is editable while publishing;
  * - gathering across slices: the draft the publish slice is sent ([checkDraft]).
+ *
+ * A slice's effects are its outputs, and they come here first: the parent turns the tag limit into a
+ * message for the screen, and on publishing it also clears the draft, so that a saved copy is not
+ * offered again.
  *
  * Act2Act's CreatePostViewModel holds all of this in one 600-line class; here every slice is tested on its
  * own, and any of them can be hosted elsewhere unchanged.
@@ -34,9 +42,9 @@ class CreatePostLogic(
         TagsLogic(posts),
         get = CreatePostState::tags,
         set = { copy(tags = it) },
-        mapEffect = { effect ->
+        onEffect = { effect ->
             when (effect) {
-                TagsEffect.LimitReached -> CreatePostEffect.Message("Up to ${TagsState.MAX_TAGS} tags")
+                TagsEffect.LimitReached -> emit(CreatePostEffect.Message("Up to ${TagsState.MAX_TAGS} tags"))
             }
         },
     )
@@ -44,9 +52,12 @@ class CreatePostLogic(
         publishLogic(posts),
         get = CreatePostState::publish,
         set = { copy(publish = it) },
-        mapEffect = { effect ->
+        onEffect = { effect ->
             when (effect) {
-                is PublishEffect.Published -> CreatePostEffect.Published(effect.postId)
+                is PublishEffect.Published -> {
+                    setState { CreatePostState(publish = publish) }
+                    emit(CreatePostEffect.Published(effect.postId))
+                }
             }
         },
     )
@@ -74,6 +85,36 @@ class CreatePostLogic(
     }
 }
 
+/**
+ * What survives the process being killed: the draft. Suggestions are fetched again, and a publish in
+ * flight is not resumed — its upload is gone with the process.
+ */
+@Serializable
+data class SavedDraft(
+    val text: String,
+    val pollOn: Boolean,
+    val pollOptions: List<String>,
+    val tags: List<String>,
+)
+
+fun SavedStateHandle.draftKeeper() = keeper<CreatePostState, SavedDraft>(
+    key = "draft",
+    serializer = SavedDraft.serializer(),
+    save = { state -> SavedDraft(state.body.text, state.poll.isOn, state.poll.options, state.tags.selected) },
+    restore = { draft ->
+        copy(
+            body = body.copy(text = draft.text),
+            poll = poll.copy(isOn = draft.pollOn, options = draft.pollOptions),
+            tags = tags.copy(selected = draft.tags),
+        )
+    },
+)
+
 class CreatePostViewModel(
     posts: PostRepository,
-) : StoreViewModel<CreatePostState, CreatePostIntent, CreatePostEffect>(CreatePostState(), CreatePostLogic(posts))
+    savedState: SavedStateHandle,
+) : StoreViewModel<CreatePostState, CreatePostIntent, CreatePostEffect>(
+        initialState = CreatePostState(),
+        logic = CreatePostLogic(posts),
+        keeper = savedState.draftKeeper(),
+    )

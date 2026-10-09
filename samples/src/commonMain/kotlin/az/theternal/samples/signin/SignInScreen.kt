@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import az.theternal.mvi.CollectEffects
+import az.theternal.mvi.Store
 import az.theternal.mvi.collectAsState
 import az.theternal.mvi.select
 import az.theternal.samples.data.FakeAuthRepository
@@ -22,19 +23,21 @@ import az.theternal.samples.ui.ErrorText
 import az.theternal.samples.ui.Hint
 import az.theternal.samples.ui.SamplePage
 
-/** One screen for every level: it sees the store and the level's mapper, never the level's state. */
+/**
+ * One screen for every level. It gets a store of [SignInUi] — the level's own state is mapped inside the
+ * ViewModel (`mapState`) — so it cannot tell which level runs.
+ */
 @Composable
-fun <S> SignInScreen(
-    viewModel: SignInViewModel<S>,
+fun SignInScreen(
+    store: Store<SignInUi, SignInIntent, SignInEffect>,
     snackbar: SnackbarHostState,
 ) {
-    viewModel.CollectEffects { effect ->
+    store.CollectEffects { effect ->
         when (effect) {
             SignInEffect.SignedIn -> snackbar.showSnackbar("Signed in")
         }
     }
-    val toUi = viewModel.version.toUi
-    SignInContent(ui = viewModel.collectAsState().select { toUi(it) }, postIntent = viewModel::postIntent)
+    SignInContent(ui = store.collectAsState(), postIntent = store::postIntent)
 }
 
 @Composable

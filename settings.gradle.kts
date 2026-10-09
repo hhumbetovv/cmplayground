@@ -30,4 +30,5 @@ dependencyResolutionManagement {
 include(":androidApp")
 include(":shared")
 include(":mvi")
+include(":mvi-test")
 include(":samples")

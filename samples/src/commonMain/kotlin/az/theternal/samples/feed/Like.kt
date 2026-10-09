@@ -4,6 +4,7 @@ import az.theternal.mvi.ActionLogic
 import az.theternal.mvi.Policy
 import az.theternal.mvi.StoreScope
 import az.theternal.mvi.StoreViewModel
+import az.theternal.mvi.observeWhileSubscribed
 import az.theternal.mvi.safeCall
 import az.theternal.mvi.setState
 import az.theternal.samples.data.Post
@@ -26,6 +27,10 @@ sealed interface LikeEffect {
  * A component's logic: a like button that owns its IO. Optimistic, and [Policy.Latest] — five taps send
  * the last wish only. The `before` it carries is what a failure rolls back to.
  *
+ * The live count is watched only while the card is on screen (`observeWhileSubscribed`): scrolled away,
+ * nothing collects the card's state, and the watching stops after the timeout — Decompose's per-item
+ * lifecycle, with no lifecycle object.
+ *
  * Hosted three ways with no change: as each feed card's own ViewModel ([LikeViewModel]), as a slice of a
  * post-details screen, or as a test's store.
  */
@@ -37,6 +42,10 @@ class LikeLogic(
         val liked: Boolean,
         val before: LikeState,
     )
+
+    override fun StoreScope<LikeState, LikeEffect>.onStart() {
+        observeWhileSubscribed(posts.likes(postId)) { count -> setState { copy(count = count) } }
+    }
 
     override fun StoreScope<LikeState, LikeEffect>.toAction(intent: LikeIntent): SetLiked {
         val before = state
@@ -58,9 +67,10 @@ class LikeLogic(
 }
 
 /**
- * The component ViewModel: keyed by the post, in the screen's ViewModel store. It owns its state from
- * creation; a feed refresh does not reset it — that is the trade-off of a component ViewModel, and why
- * the feed passes only the initial values.
+ * The component ViewModel, in its card's own ViewModel store (`ItemScope`): it lives while the post is in
+ * the feed, and is cleared when a refresh drops the post. It owns its state from creation; a refresh does
+ * not reset it — that is the trade-off of a component ViewModel, and why the feed passes only the initial
+ * values.
  */
 class LikeViewModel(
     post: Post,

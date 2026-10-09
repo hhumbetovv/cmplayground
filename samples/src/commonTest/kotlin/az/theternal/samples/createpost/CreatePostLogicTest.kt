@@ -1,7 +1,9 @@
 package az.theternal.samples.createpost
 
+import androidx.lifecycle.SavedStateHandle
 import az.theternal.mvi.ContentState
 import az.theternal.mvi.StoreHost
+import az.theternal.mvi.test.storeTest
 import az.theternal.samples.createpost.body.BodyIntent
 import az.theternal.samples.createpost.poll.PollIntent
 import az.theternal.samples.createpost.publish.PublishPhase
@@ -122,5 +124,45 @@ class CreatePostLogicTest {
         runCurrent()
         assertEquals(listOf("kotlin"), store.state.value.selected)
         assertEquals("", store.state.value.query)
+    }
+
+    @Test
+    fun theDraftSurvivesTheProcessBeingKilledButAPublishInFlightDoesNot() = runTest {
+        val handle = SavedStateHandle()
+        val store = StoreHost(CreatePostState(), backgroundScope, CreatePostLogic(posts), keeper = handle.draftKeeper())
+        send(
+            store,
+            CreatePostIntent.Body(BodyIntent.Edit("hello")),
+            CreatePostIntent.Poll(PollIntent.Toggle),
+            CreatePostIntent.Poll(PollIntent.EditOption(0, "yes")),
+            CreatePostIntent.Poll(PollIntent.EditOption(1, "no")),
+            CreatePostIntent.Publish,
+        )
+        assertIs<PublishPhase.Uploading>(store.state.value.publish)
+
+        val restored = StoreHost(CreatePostState(), backgroundScope, CreatePostLogic(posts), keeper = handle.afterProcessDeath().draftKeeper())
+        assertEquals("hello", restored.state.value.body.text)
+        assertEquals(listOf("yes", "no"), restored.state.value.poll.options)
+        assertEquals(PublishPhase.Idle, restored.state.value.publish)
+    }
+
+    @Test
+    fun publishingClearsTheDraftSoItIsNotOfferedAgain() = runTest {
+        val handle = SavedStateHandle()
+        storeTest(CreatePostState(), CreatePostLogic(posts), keeper = handle.draftKeeper()) {
+            send(CreatePostIntent.Body(BodyIntent.Edit("hello")), CreatePostIntent.Publish)
+            advance(10_000)
+            skipAll()
+            assertIs<PublishPhase.Published>(state.publish)
+            assertEquals("", state.body.text)
+        }
+        assertEquals(CreatePostState().body, handle.afterProcessDeath().draftKeeper().let {
+            StoreHost(CreatePostState(), backgroundScope, CreatePostLogic(posts), keeper = it).state.value.body
+        })
+    }
+
+    /** What a killed process leaves: the handle's contents, in a new handle. */
+    private fun SavedStateHandle.afterProcessDeath(): SavedStateHandle {
+        return SavedStateHandle(keys().associateWith { key -> get<Any>(key) })
     }
 }

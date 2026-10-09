@@ -1,6 +1,8 @@
 package az.theternal.samples.signin
 
+import az.theternal.mvi.Store
 import az.theternal.mvi.StoreViewModel
+import az.theternal.mvi.mapState
 import az.theternal.samples.data.AuthRepository
 import az.theternal.samples.signin.level1.SignInLevel1Logic
 import az.theternal.samples.signin.level1.SignInLevel1State
@@ -8,6 +10,7 @@ import az.theternal.samples.signin.level1.toUi
 import az.theternal.samples.signin.level2.SignInLevel2Logic
 import az.theternal.samples.signin.level2.SignInLevel2State
 import az.theternal.samples.signin.level3.SignInPhase
+import az.theternal.samples.signin.level3.SignInPhasesLogic
 import az.theternal.samples.signin.level3.signInLevel3Logic
 import az.theternal.samples.signin.level3.toUi
 
@@ -32,9 +35,19 @@ object SignInVersions {
         logic = ::signInLevel3Logic,
         toUi = { it.toUi() },
     )
+
+    val level3Plain = SignInVersion<SignInPhase>(
+        title = "Level 3 · phases, no library",
+        initialState = SignInPhase.Editing(),
+        logic = ::SignInPhasesLogic,
+        toUi = { it.toUi() },
+    )
 }
 
 class SignInViewModel<S>(
-    val version: SignInVersion<S>,
+    version: SignInVersion<S>,
     auth: AuthRepository,
-) : StoreViewModel<S, SignInIntent, SignInEffect>(version.initialState, version.logic(auth))
+) : StoreViewModel<S, SignInIntent, SignInEffect>(version.initialState, version.logic(auth)) {
+    /** What the screen gets: the level's own state stays inside, the screen sees only [SignInUi]. */
+    val ui: Store<SignInUi, SignInIntent, SignInEffect> = mapState(version.toUi)
+}

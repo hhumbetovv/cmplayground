@@ -165,13 +165,7 @@ fun signInLevel3Logic(auth: AuthRepository): Logic<SignInPhase, SignInIntent, Si
         state<SignInPhase.Editing> {
             onEvent<SignInEvent.EmailEdited> { editing, event -> editing.copy(email = event.value, error = null) }
             onEvent<SignInEvent.PasswordEdited> { editing, event -> editing.copy(password = event.value, error = null) }
-            onEvent<SignInEvent.Submit> { editing, _ ->
-                if (editing.email.isBlank() || editing.password.isEmpty()) {
-                    editing.copy(error = SignInMessages.BLANK)
-                } else {
-                    SignInPhase.Submitting(editing.email.trim(), editing.password, editing.failedAttempts)
-                }
-            }
+            onEvent<SignInEvent.Submit> { editing, _ -> editing.submitted() }
         }
 
         state<SignInPhase.Submitting> {
@@ -179,50 +173,13 @@ fun signInLevel3Logic(auth: AuthRepository): Logic<SignInPhase, SignInIntent, Si
                 send(SignInEvent.SignInAnswered(safeCall { auth.signIn(submitting.email, submitting.password) }))
             }
             onEvent<SignInEvent.SignInAnswered> { submitting, event ->
-                val answer = event.result.getOrElse {
-                    return@onEvent SignInPhase.Editing(
-                        submitting.email,
-                        submitting.password,
-                        submitting.failedAttempts,
-                        SignInMessages.GENERIC,
-                    )
-                }
-                when (answer) {
-                    SignInResult.Success -> {
-                        trigger(SignInEffect.SignedIn)
-                        SignInPhase.SignedIn
-                    }
-                    is SignInResult.CodeRequired -> SignInPhase.EnteringCode(
-                        email = submitting.email,
-                        password = submitting.password,
-                        challengeId = answer.challengeId,
-                    )
-                    SignInResult.WrongCredentials -> {
-                        val attempts = submitting.failedAttempts + 1
-                        if (attempts >= SignInRules.MAX_ATTEMPTS) {
-                            SignInPhase.Locked(submitting.email, submitting.password, SignInRules.LOCK_SECONDS)
-                        } else {
-                            SignInPhase.Editing(
-                                submitting.email,
-                                submitting.password,
-                                attempts,
-                                SignInMessages.WRONG_CREDENTIALS,
-                            )
-                        }
-                    }
-                }
+                submitting.answered(event.result).also { next -> if (next == SignInPhase.SignedIn) trigger(SignInEffect.SignedIn) }
             }
         }
 
         state<SignInPhase.Locked> {
             sideEffect(key = { Unit }) { tickForever() }
-            onEvent<SignInEvent.Tick> { locked, _ ->
-                if (locked.secondsLeft <= 1) {
-                    SignInPhase.Editing(locked.email, locked.password)
-                } else {
-                    locked.copy(secondsLeft = locked.secondsLeft - 1)
-                }
-            }
+            onEvent<SignInEvent.Tick> { locked, _ -> locked.ticked() }
         }
 
         nestedState<SignInPhase.Code> {
@@ -231,31 +188,12 @@ fun signInLevel3Logic(auth: AuthRepository): Logic<SignInPhase, SignInIntent, Si
             sideEffect(key = { it.resends }) { code ->
                 if (code.resends > 0) safeCall { auth.resendCode(code.challengeId) }
             }
-            onEvent<SignInEvent.Tick> { code, _ -> code.withResendSeconds(maxOf(0, code.resendSeconds - 1)) }
+            onEvent<SignInEvent.Tick> { code, _ -> code.ticked() }
 
             state<SignInPhase.EnteringCode> {
                 onEvent<SignInEvent.CodeEdited> { entering, event -> entering.copy(code = event.value, error = null) }
-                onEvent<SignInEvent.Verify> { entering, _ ->
-                    if (entering.code.length != SignInRules.CODE_LENGTH) {
-                        entering.copy(error = SignInMessages.CODE_LENGTH)
-                    } else {
-                        SignInPhase.Verifying(
-                            email = entering.email,
-                            password = entering.password,
-                            challengeId = entering.challengeId,
-                            code = entering.code,
-                            resendSeconds = entering.resendSeconds,
-                            resends = entering.resends,
-                        )
-                    }
-                }
-                onEvent<SignInEvent.Resend> { entering, _ ->
-                    if (entering.resendSeconds > 0) {
-                        entering
-                    } else {
-                        entering.copy(resendSeconds = SignInRules.RESEND_SECONDS, resends = entering.resends + 1)
-                    }
-                }
+                onEvent<SignInEvent.Verify> { entering, _ -> entering.verified() }
+                onEvent<SignInEvent.Resend> { entering, _ -> entering.resent() }
                 onEvent<SignInEvent.Back> { entering, _ -> SignInPhase.Editing(entering.email, entering.password) }
             }
 
@@ -264,20 +202,7 @@ fun signInLevel3Logic(auth: AuthRepository): Logic<SignInPhase, SignInIntent, Si
                     send(SignInEvent.CodeAnswered(safeCall { auth.verifyCode(verifying.challengeId, verifying.code) }))
                 }
                 onEvent<SignInEvent.CodeAnswered> { verifying, event ->
-                    if (event.result.getOrNull() == true) {
-                        trigger(SignInEffect.SignedIn)
-                        SignInPhase.SignedIn
-                    } else {
-                        SignInPhase.EnteringCode(
-                            email = verifying.email,
-                            password = verifying.password,
-                            challengeId = verifying.challengeId,
-                            code = verifying.code,
-                            resendSeconds = verifying.resendSeconds,
-                            resends = verifying.resends,
-                            error = if (event.result.isFailure) SignInMessages.GENERIC else SignInMessages.WRONG_CODE,
-                        )
-                    }
+                    verifying.answered(event.result).also { next -> if (next == SignInPhase.SignedIn) trigger(SignInEffect.SignedIn) }
                 }
             }
         }
@@ -291,9 +216,77 @@ private suspend fun StateMachine<SignInPhase, *, SignInEvent>.tickForever() {
     }
 }
 
-private fun SignInPhase.Code.withResendSeconds(seconds: Int): SignInPhase.Code {
+// The transitions, as pure functions. The machine above and the plain logic in SignInPhasesLogic wire
+// the same ones: what changes between them is how a phase's work is started and stopped, not the rules.
+
+internal fun SignInPhase.Editing.submitted(): SignInPhase {
+    return if (email.isBlank() || password.isEmpty()) {
+        copy(error = SignInMessages.BLANK)
+    } else {
+        SignInPhase.Submitting(email.trim(), password, failedAttempts)
+    }
+}
+
+internal fun SignInPhase.Submitting.answered(result: Result<SignInResult>): SignInPhase {
+    val answer = result.getOrElse { return SignInPhase.Editing(email, password, failedAttempts, SignInMessages.GENERIC) }
+    return when (answer) {
+        SignInResult.Success -> SignInPhase.SignedIn
+        is SignInResult.CodeRequired -> SignInPhase.EnteringCode(email = email, password = password, challengeId = answer.challengeId)
+        SignInResult.WrongCredentials -> {
+            val attempts = failedAttempts + 1
+            if (attempts >= SignInRules.MAX_ATTEMPTS) {
+                SignInPhase.Locked(email, password, SignInRules.LOCK_SECONDS)
+            } else {
+                SignInPhase.Editing(email, password, attempts, SignInMessages.WRONG_CREDENTIALS)
+            }
+        }
+    }
+}
+
+internal fun SignInPhase.Locked.ticked(): SignInPhase {
+    return if (secondsLeft <= 1) SignInPhase.Editing(email, password) else copy(secondsLeft = secondsLeft - 1)
+}
+
+internal fun SignInPhase.Code.ticked(): SignInPhase.Code {
+    val seconds = maxOf(0, resendSeconds - 1)
     return when (this) {
         is SignInPhase.EnteringCode -> copy(resendSeconds = seconds)
         is SignInPhase.Verifying -> copy(resendSeconds = seconds)
+    }
+}
+
+internal fun SignInPhase.EnteringCode.verified(): SignInPhase {
+    return if (code.length != SignInRules.CODE_LENGTH) {
+        copy(error = SignInMessages.CODE_LENGTH)
+    } else {
+        SignInPhase.Verifying(
+            email = email,
+            password = password,
+            challengeId = challengeId,
+            code = code,
+            resendSeconds = resendSeconds,
+            resends = resends,
+        )
+    }
+}
+
+/** Unchanged while the countdown runs: a new code can be asked for only after it. */
+internal fun SignInPhase.EnteringCode.resent(): SignInPhase.EnteringCode {
+    return if (resendSeconds > 0) this else copy(resendSeconds = SignInRules.RESEND_SECONDS, resends = resends + 1)
+}
+
+internal fun SignInPhase.Verifying.answered(result: Result<Boolean>): SignInPhase {
+    return if (result.getOrNull() == true) {
+        SignInPhase.SignedIn
+    } else {
+        SignInPhase.EnteringCode(
+            email = email,
+            password = password,
+            challengeId = challengeId,
+            code = code,
+            resendSeconds = resendSeconds,
+            resends = resends,
+            error = if (result.isFailure) SignInMessages.GENERIC else SignInMessages.WRONG_CODE,
+        )
     }
 }

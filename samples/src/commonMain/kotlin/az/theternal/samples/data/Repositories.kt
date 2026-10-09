@@ -35,6 +35,9 @@ interface PostRepository {
         liked: Boolean,
     ): Int
 
+    /** The post's like count, live: other people like it too. Cold — it costs only while collected. */
+    fun likes(postId: String): Flow<Int>
+
     suspend fun report(
         postId: String,
         reason: ReportReason,

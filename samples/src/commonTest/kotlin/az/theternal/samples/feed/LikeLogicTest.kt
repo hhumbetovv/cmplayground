@@ -1,13 +1,13 @@
 package az.theternal.samples.feed
 
+import az.theternal.mvi.DEFAULT_STOP_TIMEOUT_MILLIS
 import az.theternal.mvi.Logic
 import az.theternal.mvi.StoreHost
 import az.theternal.mvi.StoreScope
 import az.theternal.mvi.slice
+import az.theternal.mvi.test.storeTest
 import az.theternal.samples.data.FakePostRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -32,14 +32,31 @@ class LikeLogicTest {
 
     @Test
     fun aFailureRollsBack() = runTest {
-        val store = StoreHost(LikeState(isLiked = false, count = 7), backgroundScope, LikeLogic(FakePostRepository.FAILING_POST, posts))
-        val effects = mutableListOf<LikeEffect>()
-        backgroundScope.launch { store.effects.toList(effects) }
-        store.postIntent(LikeIntent.Toggle)
-        runCurrent()
-        advanceTimeBy(2_000)
-        assertEquals(LikeState(isLiked = false, count = 7), store.state.value)
-        assertEquals(listOf<LikeEffect>(LikeEffect.Failed), effects)
+        storeTest(LikeState(isLiked = false, count = 7), LikeLogic(FakePostRepository.FAILING_POST, posts)) {
+            send(LikeIntent.Toggle)
+            expectState { copy(isLiked = true, count = 8) }
+            advance(1_000)
+            expectState { copy(isLiked = false, count = 7) }
+            expectEffect(LikeEffect.Failed)
+        }
+    }
+
+    @Test
+    fun theCountIsLiveOnlyWhileTheCardIsOnScreen() = runTest {
+        storeTest(LikeState(isLiked = false, count = 12), LikeLogic("p1", posts)) {
+            // No one looks at the card: nothing is watched.
+            advance(10 * FakePostRepository.LIVE_LIKE_MILLIS)
+            expectNoItems()
+
+            val card = subscribe()
+            advance(FakePostRepository.LIVE_LIKE_MILLIS)
+            expectState { copy(count = 13) }
+
+            // Scrolled away: the watching goes on through the stop timeout, then stops.
+            card.cancel()
+            advance(DEFAULT_STOP_TIMEOUT_MILLIS + 10 * FakePostRepository.LIVE_LIKE_MILLIS)
+            expectState { copy(count = 14) }
+        }
     }
 
     @Test

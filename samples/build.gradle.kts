@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -30,6 +31,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
         }
         commonTest.dependencies {
+            implementation(project(":mvi-test"))
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }

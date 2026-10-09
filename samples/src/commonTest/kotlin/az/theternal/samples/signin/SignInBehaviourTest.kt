@@ -1,6 +1,8 @@
 package az.theternal.samples.signin
 
+import az.theternal.mvi.Store
 import az.theternal.mvi.StoreHost
+import az.theternal.mvi.mapState
 import az.theternal.samples.data.AuthRepository
 import az.theternal.samples.data.FakeAuthRepository
 import az.theternal.samples.data.SignInResult
@@ -20,9 +22,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * One behaviour, three implementations. Every test runs against level 1, 2 and 3 and asserts only on
- * what the screen draws ([SignInUi]), the effects, and the requests made — which is what makes moving a
- * screen from one level to another a refactoring with a safety net.
+ * One behaviour, four implementations. Every test runs against level 1, level 2, level 3 with the
+ * state-machine library and level 3 without it, and asserts only on what the screen draws ([SignInUi]),
+ * the effects, and the requests made — which is what makes moving a screen from one level to another a
+ * refactoring with a safety net.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 abstract class SignInBehaviourTest<S>(
@@ -57,14 +60,14 @@ abstract class SignInBehaviourTest<S>(
         }
     }
 
-    private class Screen<S>(
-        val store: StoreHost<S, SignInIntent, SignInEffect>,
+    /** What the screen has: a store of [SignInUi], whatever the level behind it. */
+    private class Screen(
+        val store: Store<SignInUi, SignInIntent, SignInEffect>,
         val auth: CountingAuth,
         val effects: List<SignInEffect>,
-        private val toUi: (S) -> SignInUi,
         private val scope: TestScope,
     ) {
-        val ui: SignInUi get() = toUi(store.state.value)
+        val ui: SignInUi get() = store.state.value
 
         fun send(vararg intents: SignInIntent) {
             intents.forEach(store::postIntent)
@@ -86,13 +89,13 @@ abstract class SignInBehaviourTest<S>(
         }
     }
 
-    private fun screen(test: suspend TestScope.(Screen<S>) -> Unit) = runTest {
+    private fun screen(test: suspend TestScope.(Screen) -> Unit) = runTest {
         val auth = CountingAuth()
-        val store = StoreHost(version.initialState, backgroundScope, version.logic(auth))
+        val store = StoreHost(version.initialState, backgroundScope, version.logic(auth)).mapState(version.toUi)
         val effects = mutableListOf<SignInEffect>()
         backgroundScope.launch { store.effects.toList(effects) }
         runCurrent()
-        test(Screen(store, auth, effects, version.toUi, this))
+        test(Screen(store, auth, effects, this))
     }
 
     @Test
@@ -205,3 +208,5 @@ class SignInLevel1Test : SignInBehaviourTest<SignInLevel1State>(SignInVersions.l
 class SignInLevel2Test : SignInBehaviourTest<SignInLevel2State>(SignInVersions.level2)
 
 class SignInLevel3Test : SignInBehaviourTest<SignInPhase>(SignInVersions.level3)
+
+class SignInLevel3PlainTest : SignInBehaviourTest<SignInPhase>(SignInVersions.level3Plain)

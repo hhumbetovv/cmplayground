@@ -86,6 +86,12 @@ class FakePostRepository(
         Post("p2", "Alan Turing", "We can only see a short distance ahead.", likes = 40, isLiked = true),
         Post("p3", "Grace Hopper", "It is easier to ask forgiveness than to get permission.", likes = 7, isLiked = false),
         Post("p4", "Barbara Liskov", "Abstraction is the key to managing complexity.", likes = 3, isLiked = false),
+        Post("p5", "Edsger Dijkstra", "Simplicity is prerequisite for reliability.", likes = 51, isLiked = false),
+        Post("p6", "Donald Knuth", "Premature optimization is the root of all evil.", likes = 88, isLiked = true),
+        Post("p7", "Margaret Hamilton", "There was no choice but to be pioneers.", likes = 23, isLiked = false),
+        Post("p8", "Tony Hoare", "I call it my billion-dollar mistake.", likes = 64, isLiked = false),
+        Post("p9", "Frances Allen", "Compilers are about making things possible.", likes = 9, isLiked = false),
+        Post("p10", "John McCarthy", "He who refuses to do arithmetic is doomed to talk nonsense.", likes = 17, isLiked = false),
     )
     private val tags = listOf(
         "kotlin", "compose", "multiplatform", "android", "ios", "architecture", "mvi", "testing",
@@ -108,6 +114,17 @@ class FakePostRepository(
         val updated = if (post.isLiked == liked) post else post.copy(isLiked = liked, likes = post.likes + if (liked) 1 else -1)
         posts[index] = updated
         return updated.likes
+    }
+
+    /** Someone else likes the post every few seconds, for as long as it is watched. */
+    override fun likes(postId: String): Flow<Int> = flow {
+        while (true) {
+            delay(LIVE_LIKE_MILLIS)
+            val index = posts.indexOfFirst { it.id == postId }
+            val post = posts[index].let { it.copy(likes = it.likes + 1) }
+            posts[index] = post
+            emit(post.likes)
+        }
     }
 
     override suspend fun report(
@@ -145,6 +162,7 @@ class FakePostRepository(
 
         /** Grace Hopper's post: liking it always fails, to show the rollback. */
         const val FAILING_POST = "p3"
+        const val LIVE_LIKE_MILLIS = 4_000L
         private const val UPLOAD_STEPS = 5
     }
 }

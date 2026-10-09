@@ -1,12 +1,16 @@
 # CMPlayground — MVI patterns
 
-This branch (`feat/mvi-patterns`) holds MVI at four levels of complexity, with rules for choosing a level and
-moving between levels. Read [`docs/mvi-patterns.md`](docs/mvi-patterns.md).
+This branch (`feat/mvi-patterns-v2`) holds MVI at four levels of complexity, with rules for choosing a level
+and moving between levels, and the parts of Orbit MVI and Decompose worth having. Read
+[`docs/mvi-patterns.md`](docs/mvi-patterns.md).
 
-- `mvi/` is the runtime: `Store`, `Logic`, `ActionLogic` with policies, `Slice`, `MachineLogic` (over
-  dev.klitsie.statemachine), `ContentState`, and the Compose helpers.
-- `samples/` has one sample per level, sign-in written at three levels, and a feed with component
-  ViewModels. Each has tests in `samples/src/commonTest`.
+- `mvi/` is the runtime: `Store`, `Logic`, `ActionLogic` with policies, phases (`whileIn`, `runOn`),
+  `Slice` and `Slot`, `MachineLogic` (over dev.klitsie.statemachine), `StateKeeper`, `ContentState`, and
+  the Compose helpers, per-item ViewModel stores among them.
+- `mvi-test/` is the test DSL: `storeTest { send(…); expectState { copy(…) }; expectEffect(…) }`.
+- `samples/` has one sample per level, sign-in written four ways, a create-post screen whose draft
+  survives process death, and a feed with per-card ViewModels and a report sheet. Each has tests in
+  `samples/src/commonTest`.
 - Tests: `./gradlew :mvi:jvmTest :samples:jvmTest`. The app opens on the samples catalog.
 
 ---

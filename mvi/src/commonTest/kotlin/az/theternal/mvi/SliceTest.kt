@@ -28,7 +28,7 @@ class SliceTest {
             Counter(),
             get = Parent::right,
             set = { copy(right = it) },
-            mapEffect = { effect -> "right: $effect" },
+            onEffect = { effect -> emit("right: $effect") },
         )
 
         override fun StoreScope<Parent, String>.onStart() {

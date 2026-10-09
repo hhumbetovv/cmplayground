@@ -1,5 +1,7 @@
 package az.theternal.samples.report
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.selectable
@@ -13,6 +15,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import az.theternal.mvi.CollectEffects
 import az.theternal.mvi.collectAsState
 import az.theternal.mvi.select
@@ -46,6 +49,17 @@ private fun ReportContent(
 ) {
     SamplePage {
         Hint("Level 1: intents change the state directly. A comment containing \"fail\" fails to send.")
+        ReportForm(state = state, postIntent = postIntent)
+    }
+}
+
+/** The form alone: drawn by this screen, and by the feed's report sheet, where the same logic is a slot. */
+@Composable
+fun ReportForm(
+    state: State<ReportState>,
+    postIntent: (ReportIntent) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Reasons(selected = state.select { it.reason }, onSelect = { postIntent(ReportIntent.SelectReason(it)) })
         val comment by state.select { it.comment }
         OutlinedTextField(
