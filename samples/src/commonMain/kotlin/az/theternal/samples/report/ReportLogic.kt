@@ -1,11 +1,13 @@
 package az.theternal.samples.report
 
+import androidx.lifecycle.ViewModel
 import az.theternal.mvi.Logic
+import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.StoreScope
-import az.theternal.mvi.StoreViewModel
 import az.theternal.mvi.launch
 import az.theternal.mvi.safeCall
 import az.theternal.mvi.setState
+import az.theternal.mvi.store
 import az.theternal.samples.data.PostRepository
 
 /**
@@ -44,4 +46,7 @@ class ReportLogic(
 class ReportViewModel(
     postId: String,
     posts: PostRepository,
-) : StoreViewModel<ReportState, ReportIntent, ReportEffect>(ReportState(), ReportLogic(postId, posts))
+) : ViewModel(),
+    StoreOwner<ReportState, ReportIntent, ReportEffect> {
+    override val store = store(ReportState(), ReportLogic(postId, posts))
+}

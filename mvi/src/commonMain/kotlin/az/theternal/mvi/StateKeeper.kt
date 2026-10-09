@@ -18,7 +18,7 @@ import kotlinx.serialization.json.Json
  * of saving the whole state.
  *
  * ```kotlin
- * StoreViewModel(CreatePostState(), logic, keeper = handle.keeper("draft", SavedDraft.serializer(), save = …, restore = …))
+ * override val store = store(CreatePostState(), logic, keeper = handle.keeper("draft", SavedDraft.serializer(), …))
  * ```
  */
 class StateKeeper<S> internal constructor(

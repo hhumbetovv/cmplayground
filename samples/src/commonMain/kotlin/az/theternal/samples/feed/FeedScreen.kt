@@ -29,6 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import az.theternal.mvi.CollectEffects
 import az.theternal.mvi.ContentState
 import az.theternal.mvi.ItemScope
+import az.theternal.mvi.Store
 import az.theternal.mvi.collectAsState
 import az.theternal.mvi.dataOrNull
 import az.theternal.mvi.rememberItemStores
@@ -42,16 +43,16 @@ import az.theternal.samples.ui.Hint
 
 @Composable
 fun FeedScreen(
-    viewModel: FeedViewModel,
+    store: Store<FeedState, FeedIntent, FeedEffect>,
     posts: PostRepository,
     snackbar: SnackbarHostState,
 ) {
-    viewModel.CollectEffects { effect ->
+    store.CollectEffects { effect ->
         when (effect) {
             is FeedEffect.Message -> snackbar.showSnackbar(effect.text)
         }
     }
-    val state = viewModel.collectAsState()
+    val state = store.collectAsState()
     val feed by state.select { it.posts }
     val items = feed.dataOrNull().orEmpty()
     // One ViewModel store per post: a card's like lives while the post is in the feed.
@@ -69,7 +70,7 @@ fun FeedScreen(
                         "Grace Hopper's post refuses likes and rolls back. Report opens the report screen's logic " +
                         "in a sheet; a comment containing \"fail\" fails.",
                 )
-                Button(onClick = { viewModel.postIntent(FeedIntent.Refresh) }) { Text("Refresh") }
+                Button(onClick = { store.postIntent(FeedIntent.Refresh) }) { Text("Refresh") }
                 if (feed is ContentState.Loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 (feed as? ContentState.Error)?.let { ErrorText(it.error.message.orEmpty()) }
                 if (feed is ContentState.Loading && items.isEmpty()) CircularProgressIndicator()
@@ -81,7 +82,7 @@ fun FeedScreen(
                     post = post,
                     posts = posts,
                     snackbar = snackbar,
-                    onReport = { viewModel.postIntent(FeedIntent.OpenReport(post.id)) },
+                    onReport = { store.postIntent(FeedIntent.OpenReport(post.id)) },
                 )
             }
         }
@@ -90,7 +91,7 @@ fun FeedScreen(
     if (isReporting) {
         ReportSheet(
             state = state.select { it.report ?: ReportState() },
-            postIntent = viewModel::postIntent,
+            postIntent = store::postIntent,
         )
     }
 }
@@ -134,7 +135,7 @@ private fun LikeButton(
     posts: PostRepository,
     snackbar: SnackbarHostState,
 ) {
-    val like = viewModel { LikeViewModel(post, posts) }
+    val like = viewModel { LikeViewModel(post, posts) }.store
     like.CollectEffects { effect ->
         when (effect) {
             LikeEffect.Failed -> snackbar.showSnackbar("Could not like ${post.author}'s post")

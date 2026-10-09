@@ -1,13 +1,15 @@
 package az.theternal.samples.createpost
 
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
 import az.theternal.mvi.Logic
 import az.theternal.mvi.Slice
+import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.StoreScope
-import az.theternal.mvi.StoreViewModel
 import az.theternal.mvi.keeper
 import az.theternal.mvi.setState
 import az.theternal.mvi.slice
+import az.theternal.mvi.store
 import az.theternal.samples.createpost.body.BodyLogic
 import az.theternal.samples.createpost.poll.PollLogic
 import az.theternal.samples.createpost.publish.PublishEffect
@@ -113,8 +115,7 @@ fun SavedStateHandle.draftKeeper() = keeper<CreatePostState, SavedDraft>(
 class CreatePostViewModel(
     posts: PostRepository,
     savedState: SavedStateHandle,
-) : StoreViewModel<CreatePostState, CreatePostIntent, CreatePostEffect>(
-        initialState = CreatePostState(),
-        logic = CreatePostLogic(posts),
-        keeper = savedState.draftKeeper(),
-    )
+) : ViewModel(),
+    StoreOwner<CreatePostState, CreatePostIntent, CreatePostEffect> {
+    override val store = store(CreatePostState(), CreatePostLogic(posts), keeper = savedState.draftKeeper())
+}

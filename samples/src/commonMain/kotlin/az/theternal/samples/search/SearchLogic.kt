@@ -1,11 +1,13 @@
 package az.theternal.samples.search
 
+import androidx.lifecycle.ViewModel
 import az.theternal.mvi.ActionLogic
 import az.theternal.mvi.Policy
+import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.StoreScope
-import az.theternal.mvi.StoreViewModel
 import az.theternal.mvi.dataOrNull
 import az.theternal.mvi.safeCall
+import az.theternal.mvi.store
 import az.theternal.samples.data.UserRepository
 import kotlinx.coroutines.delay
 
@@ -80,4 +82,7 @@ class SearchLogic(
 
 class SearchViewModel(
     users: UserRepository,
-) : StoreViewModel<SearchState, SearchIntent, SearchEffect>(SearchState(), SearchLogic(users))
+) : ViewModel(),
+    StoreOwner<SearchState, SearchIntent, SearchEffect> {
+    override val store = store(SearchState(), SearchLogic(users))
+}

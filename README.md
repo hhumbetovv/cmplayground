@@ -1,8 +1,13 @@
 # CMPlayground — MVI patterns
 
 This branch (`feat/mvi-patterns-v2`) holds MVI at four levels of complexity, with rules for choosing a level
-and moving between levels, and the parts of Orbit MVI and Decompose worth having. Read
-[`docs/mvi-patterns.md`](docs/mvi-patterns.md).
+and moving between levels, and the parts of Orbit MVI and Decompose worth having. Start with
+[`docs/mvi/`](docs/mvi/README.md):
+
+- [guide](docs/mvi/guide.md): writing a screen, choosing a level, the rules, and a review checklist;
+- [migrations](docs/mvi/migrations.md): when to move a screen between levels or hosts, in both directions,
+  and how;
+- [reference](docs/mvi/reference.md): how the runtime works and why.
 
 - `mvi/` is the runtime: `Store`, `Logic`, `ActionLogic` with policies, phases (`whileIn`, `runOn`),
   `Slice` and `Slot`, `MachineLogic` (over dev.klitsie.statemachine), `StateKeeper`, `ContentState`, and

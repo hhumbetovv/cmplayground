@@ -1,16 +1,18 @@
 package az.theternal.samples.feed
 
+import androidx.lifecycle.ViewModel
 import az.theternal.mvi.ActionLogic
 import az.theternal.mvi.Child
 import az.theternal.mvi.ContentState
 import az.theternal.mvi.Policy
 import az.theternal.mvi.Slot
+import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.StoreScope
-import az.theternal.mvi.StoreViewModel
 import az.theternal.mvi.ViewState
 import az.theternal.mvi.reload
 import az.theternal.mvi.safeCall
 import az.theternal.mvi.setState
+import az.theternal.mvi.store
 import az.theternal.mvi.toContentState
 import az.theternal.samples.data.Post
 import az.theternal.samples.data.PostRepository
@@ -97,4 +99,7 @@ class FeedLogic(
 
 class FeedViewModel(
     posts: PostRepository,
-) : StoreViewModel<FeedState, FeedIntent, FeedEffect>(FeedState(), FeedLogic(posts))
+) : ViewModel(),
+    StoreOwner<FeedState, FeedIntent, FeedEffect> {
+    override val store = store(FeedState(), FeedLogic(posts))
+}

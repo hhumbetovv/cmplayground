@@ -1,12 +1,14 @@
 package az.theternal.samples.feed
 
+import androidx.lifecycle.ViewModel
 import az.theternal.mvi.ActionLogic
 import az.theternal.mvi.Policy
+import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.StoreScope
-import az.theternal.mvi.StoreViewModel
 import az.theternal.mvi.observeWhileSubscribed
 import az.theternal.mvi.safeCall
 import az.theternal.mvi.setState
+import az.theternal.mvi.store
 import az.theternal.samples.data.Post
 import az.theternal.samples.data.PostRepository
 
@@ -75,4 +77,7 @@ class LikeLogic(
 class LikeViewModel(
     post: Post,
     posts: PostRepository,
-) : StoreViewModel<LikeState, LikeIntent, LikeEffect>(LikeState(post.isLiked, post.likes), LikeLogic(post.id, posts))
+) : ViewModel(),
+    StoreOwner<LikeState, LikeIntent, LikeEffect> {
+    override val store = store(LikeState(post.isLiked, post.likes), LikeLogic(post.id, posts))
+}

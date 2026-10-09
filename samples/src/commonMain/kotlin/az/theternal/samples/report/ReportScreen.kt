@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.mvi.CollectEffects
+import az.theternal.mvi.Store
 import az.theternal.mvi.collectAsState
 import az.theternal.mvi.select
 import az.theternal.samples.data.ReportReason
@@ -26,11 +27,11 @@ import az.theternal.samples.ui.Section
 
 @Composable
 fun ReportScreen(
-    viewModel: ReportViewModel,
+    store: Store<ReportState, ReportIntent, ReportEffect>,
     snackbar: SnackbarHostState,
     onDone: () -> Unit,
 ) {
-    viewModel.CollectEffects { effect ->
+    store.CollectEffects { effect ->
         when (effect) {
             ReportEffect.Sent -> {
                 snackbar.showSnackbar("Report sent")
@@ -39,7 +40,7 @@ fun ReportScreen(
             is ReportEffect.Failed -> snackbar.showSnackbar(effect.message)
         }
     }
-    ReportContent(state = viewModel.collectAsState(), postIntent = viewModel::postIntent)
+    ReportContent(state = store.collectAsState(), postIntent = store::postIntent)
 }
 
 @Composable

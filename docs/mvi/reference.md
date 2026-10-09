@@ -1,7 +1,8 @@
-# MVI patterns by complexity
+# MVI reference
 
-One architecture, MVI, at four levels of complexity. A screen starts at the lowest level that fits and moves
-up when it crosses a measurable line. Moving changes the screen's logic and nothing the user sees.
+How the runtime works and why it is built this way. To write a screen, start with the [guide](guide.md); to
+move a screen between levels, read [migrations](migrations.md). This page is what both of them link to for
+the details.
 
 The runtime is in `mvi/`, its test DSL in `mvi-test/`, the samples in `samples/`, and every sample is tested
 in `samples/src/commonTest`. Run the tests with `./gradlew :mvi:jvmTest :samples:jvmTest`; run the app from
@@ -18,7 +19,7 @@ there are five hosts:
 
 | Host | For |
 |---|---|
-| `StoreViewModel(initial, logic)` | a screen, or a component with its own ViewModel |
+| `store(initial, logic)` in a ViewModel that is a `StoreOwner` | a screen, or a component with its own ViewModel |
 | `Slice(logic, get, set, onEffect)` inside a parent logic | one part of a bigger screen, for as long as the screen lives |
 | `Slot(get, set, create, onEffect)` inside a parent logic | a part that exists only while it is open: a dialog, a sheet |
 | `ItemScope(stores, key)` around a list item | a component ViewModel per list item |
@@ -26,6 +27,18 @@ there are five hosts:
 
 Because of this, moving a piece of logic is a change of host and not a rewrite. That is what keeps migration
 between levels cheap. The ViewModel holds no behaviour: it is one line, and the logic is tested without it.
+
+```kotlin
+class SearchViewModel(users: UserRepository) :
+    ViewModel(),
+    StoreOwner<SearchState, SearchIntent, SearchEffect> {
+    override val store = store(SearchState(), SearchLogic(users))
+}
+```
+
+`StoreOwner` is an interface, named after Android's owners (`LifecycleOwner`, `ViewModelStoreOwner`): the
+ViewModel hands out its store and is not one itself. Being an interface, it leaves the superclass free for an
+app's own base ViewModel. The screen is given `viewModel { … }.store`.
 The feed sample shows the extreme case: the report screen's logic, unchanged, runs as a screen and as a sheet.
 
 ### The screen sees only what it draws
@@ -69,7 +82,7 @@ These are set once for the app, through its base ViewModel or its DI:
 | **4 · Slices** | Parts of the screen change for different reasons | A composition-root `Logic` with one `Slice` per part, each slice at its own level | `createpost/` |
 
 Component ViewModels are not a level. They are a way of hosting: a component whose logic owns its IO gets
-its own `StoreViewModel` (see `feed/`).
+its own ViewModel (see `feed/`).
 
 ### Level 3, with or without the library
 
@@ -89,42 +102,10 @@ or when its compile-time check (missing or duplicate phases) is worth a dependen
 work only on entering the phase, so it has no "key defaults to the whole state" trap; when the work depends
 on something inside the phase, it takes a `key`.
 
-## Moving up: the lines
+## Moving between levels
 
-These are measurable on purpose. Each one is visible in a diff or in review.
-
-- **1 → 2:** a second request can start while the first runs. In code, that is a `Job?` field, an
-  `if (isLoading) return` that protects against a double tap, or a check that a result still matches its
-  input (`if (state.query == query)`). Any one of these means level 2. A `Policy` names the rule once.
-- **→ 3:** three or more flags exclude each other (`isSubmitting`, `isVerifying`, `isLocked`, `step`), or a
-  handler starts with a guard that reads two flags. The flags then allow impossible combinations, and every
-  new rule has to touch all the guards. With phases, the impossible combinations cannot be written.
-- **→ 4:** the logic passes about 300 lines, or its intents fall into groups that do not touch each other's
-  state (Act2Act's `CreatePostViewModel`: tags, poll, answers, submit). Each group becomes a slice.
-- **slice → slot:** the part is open only sometimes (a dialog, a sheet, an inline editor), and its work must
-  stop when it closes.
-- **slice → component ViewModel:** the part is drawn in more than one screen, or once per list item, and
-  owns its IO (a like button, a follow button).
-- **→ use case:** the logic is needed by two screens, or it orchestrates several repositories. A use case
-  that only forwards one repository call is not written.
-
-Moving down is allowed. When a screen loses features, take it back down a level.
-
-### The migration, shown
-
-`signin/` is one screen written four ways: the same intents, the same `SignInUi`, and the same screen.
-`SignInBehaviourTest` runs seven behaviours against all four:
-
-- **Level 1** works, and shows the cost: five flags, a guard at the top of every handler, and two `Job`s kept
-  by hand so that two countdowns never tick at once.
-- **Level 2** keeps the same state and moves the concurrency into policies. The jobs disappear, but the
-  flags and the guards stay. That is the level 3 signal.
-- **Level 3** has phases: `Editing`, `Submitting`, `Locked`, `EnteringCode`, `Verifying`, `SignedIn`. There
-  are no flags and no guards, and the countdowns are work of their phases. It is written twice, plain and
-  with the library, over the same transitions.
-
-Every level maps its own state onto `SignInUi` inside its ViewModel (`mapState`), so the screen never sees
-which level is running.
+The lines that say when to move up or down, a recipe for every move, and the sign-in screen written at every
+level are in [migrations](migrations.md).
 
 ## The pipeline, stage by stage
 

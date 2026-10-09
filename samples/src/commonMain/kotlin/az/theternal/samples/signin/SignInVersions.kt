@@ -1,8 +1,9 @@
 package az.theternal.samples.signin
 
-import az.theternal.mvi.Store
-import az.theternal.mvi.StoreViewModel
+import androidx.lifecycle.ViewModel
+import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.mapState
+import az.theternal.mvi.store
 import az.theternal.samples.data.AuthRepository
 import az.theternal.samples.signin.level1.SignInLevel1Logic
 import az.theternal.samples.signin.level1.SignInLevel1State
@@ -47,7 +48,8 @@ object SignInVersions {
 class SignInViewModel<S>(
     version: SignInVersion<S>,
     auth: AuthRepository,
-) : StoreViewModel<S, SignInIntent, SignInEffect>(version.initialState, version.logic(auth)) {
-    /** What the screen gets: the level's own state stays inside, the screen sees only [SignInUi]. */
-    val ui: Store<SignInUi, SignInIntent, SignInEffect> = mapState(version.toUi)
+) : ViewModel(),
+    StoreOwner<SignInUi, SignInIntent, SignInEffect> {
+    /** The level's own state stays inside: the screen sees only [SignInUi]. */
+    override val store = store(version.initialState, version.logic(auth)).mapState(version.toUi)
 }

@@ -61,7 +61,8 @@ fun <S, U, I, E> Store<S, I, E>.mapState(transform: (S) -> U): Store<U, I, E> {
 
 /**
  * Hosts a [Logic] on [scope]: owns the state, delivers the effects, and handles every intent on the
- * caller's thread, in order. A ViewModel hosts one through [StoreViewModel]; a test hosts one directly.
+ * caller's thread, in order. A ViewModel hosts one through [store] and hands it out as a [StoreOwner]; a
+ * test hosts one directly.
  *
  * With a [keeper], the state starts from what the keeper saved before the process died, and the part the
  * keeper keeps is saved again whenever it changes.

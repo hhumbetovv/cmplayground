@@ -117,18 +117,18 @@ private fun SampleScreen(
     close: () -> Unit,
 ) {
     when (sample) {
-        Sample.Report -> ReportScreen(viewModel { ReportViewModel("p1", dependencies.posts) }, snackbar, onDone = close)
-        Sample.Search -> SearchScreen(viewModel { SearchViewModel(dependencies.users) }, snackbar)
+        Sample.Report -> ReportScreen(viewModel { ReportViewModel("p1", dependencies.posts) }.store, snackbar, onDone = close)
+        Sample.Search -> SearchScreen(viewModel { SearchViewModel(dependencies.users) }.store, snackbar)
         Sample.SignIn1 -> SignIn(SignInVersions.level1, dependencies, snackbar)
         Sample.SignIn2 -> SignIn(SignInVersions.level2, dependencies, snackbar)
         Sample.SignIn3 -> SignIn(SignInVersions.level3, dependencies, snackbar)
         Sample.SignIn3Plain -> SignIn(SignInVersions.level3Plain, dependencies, snackbar)
         Sample.CreatePost -> CreatePostScreen(
-            viewModel { CreatePostViewModel(dependencies.posts, savedState) },
+            viewModel { CreatePostViewModel(dependencies.posts, savedState) }.store,
             snackbar,
             onPublished = close,
         )
-        Sample.Feed -> FeedScreen(viewModel { FeedViewModel(dependencies.posts) }, dependencies.posts, snackbar)
+        Sample.Feed -> FeedScreen(viewModel { FeedViewModel(dependencies.posts) }.store, dependencies.posts, snackbar)
     }
 }
 
@@ -138,7 +138,7 @@ private fun <S> SignIn(
     dependencies: SampleDependencies,
     snackbar: SnackbarHostState,
 ) {
-    SignInScreen(viewModel { SignInViewModel(version, dependencies.auth) }.ui, snackbar)
+    SignInScreen(viewModel { SignInViewModel(version, dependencies.auth) }.store, snackbar)
 }
 
 /**

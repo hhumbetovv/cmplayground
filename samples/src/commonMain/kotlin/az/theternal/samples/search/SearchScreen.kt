@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import az.theternal.mvi.CollectEffects
 import az.theternal.mvi.ContentState
+import az.theternal.mvi.Store
 import az.theternal.mvi.collectAsState
 import az.theternal.mvi.select
 import az.theternal.samples.data.User
@@ -25,15 +26,15 @@ import az.theternal.samples.ui.SamplePage
 
 @Composable
 fun SearchScreen(
-    viewModel: SearchViewModel,
+    store: Store<SearchState, SearchIntent, SearchEffect>,
     snackbar: SnackbarHostState,
 ) {
-    viewModel.CollectEffects { effect ->
+    store.CollectEffects { effect ->
         when (effect) {
             is SearchEffect.FollowFailed -> snackbar.showSnackbar("Could not follow ${effect.name}")
         }
     }
-    SearchContent(state = viewModel.collectAsState(), postIntent = viewModel::postIntent)
+    SearchContent(state = store.collectAsState(), postIntent = store::postIntent)
 }
 
 @Composable

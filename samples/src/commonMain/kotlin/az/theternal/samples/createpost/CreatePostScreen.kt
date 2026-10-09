@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import az.theternal.mvi.CollectEffects
+import az.theternal.mvi.Store
 import az.theternal.mvi.collectAsState
 import az.theternal.samples.createpost.body.BodyIntent
 import az.theternal.samples.createpost.poll.PollIntent
@@ -33,11 +34,11 @@ import az.theternal.samples.ui.Section
 
 @Composable
 fun CreatePostScreen(
-    viewModel: CreatePostViewModel,
+    store: Store<CreatePostState, CreatePostIntent, CreatePostEffect>,
     snackbar: SnackbarHostState,
     onPublished: () -> Unit,
 ) {
-    viewModel.CollectEffects { effect ->
+    store.CollectEffects { effect ->
         when (effect) {
             is CreatePostEffect.Published -> {
                 snackbar.showSnackbar("Published ${effect.postId}")
@@ -46,8 +47,8 @@ fun CreatePostScreen(
             is CreatePostEffect.Message -> snackbar.showSnackbar(effect.text)
         }
     }
-    val state = viewModel.collectAsState()
-    val postIntent = viewModel::postIntent
+    val state = store.collectAsState()
+    val postIntent = store::postIntent
     SamplePage {
         Hint(
             "Level 4: four slices at three levels. Text containing \"fail\" fails to publish; cancel works " +
