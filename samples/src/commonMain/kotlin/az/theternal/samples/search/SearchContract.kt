@@ -2,9 +2,6 @@ package az.theternal.samples.search
 
 import az.theternal.mvi.ContentState
 import az.theternal.mvi.Partial
-import az.theternal.mvi.ViewEffect
-import az.theternal.mvi.ViewIntent
-import az.theternal.mvi.ViewState
 import az.theternal.mvi.map
 import az.theternal.mvi.toContentState
 import az.theternal.samples.data.User
@@ -12,10 +9,10 @@ import az.theternal.samples.data.User
 data class SearchState(
     val query: String = "",
     val results: ContentState<List<User>> = ContentState.Idle,
-) : ViewState
+)
 
 /** What the user did. */
-sealed interface SearchIntent : ViewIntent {
+sealed interface SearchIntent {
     data class EditQuery(
         val text: String,
     ) : SearchIntent
@@ -75,7 +72,7 @@ sealed interface SearchPartial : Partial<SearchState> {
     }
 }
 
-sealed interface SearchEffect : ViewEffect {
+sealed interface SearchEffect {
     data class FollowFailed(
         val name: String,
     ) : SearchEffect

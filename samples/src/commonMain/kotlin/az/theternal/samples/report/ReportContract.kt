@@ -1,20 +1,17 @@
 package az.theternal.samples.report
 
-import az.theternal.mvi.ViewEffect
-import az.theternal.mvi.ViewIntent
-import az.theternal.mvi.ViewState
 import az.theternal.samples.data.ReportReason
 
 data class ReportState(
     val reason: ReportReason? = null,
     val comment: String = "",
     val isSending: Boolean = false,
-) : ViewState {
+) {
     val canSend: Boolean
         get() = reason != null && (reason != ReportReason.Other || comment.isNotBlank()) && !isSending
 }
 
-sealed interface ReportIntent : ViewIntent {
+sealed interface ReportIntent {
     data class SelectReason(
         val reason: ReportReason,
     ) : ReportIntent
@@ -26,7 +23,7 @@ sealed interface ReportIntent : ViewIntent {
     data object Send : ReportIntent
 }
 
-sealed interface ReportEffect : ViewEffect {
+sealed interface ReportEffect {
     data object Sent : ReportEffect
 
     data class Failed(

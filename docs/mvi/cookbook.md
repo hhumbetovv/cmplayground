@@ -41,9 +41,9 @@ Internal state (cursors, attempts, ids the screen does not draw) is [guide secti
 ```kotlin
 data class ProfileState(
     val profile: ContentState<Profile> = ContentState.Idle,
-) : ViewState
+)
 
-sealed interface ProfileIntent : ViewIntent {
+sealed interface ProfileIntent {
     data object Retry : ProfileIntent
 }
 
@@ -143,9 +143,9 @@ data class ItemsState(
     val cursor: String? = null,                          // internal: where the next page starts
     val hasMore: Boolean = true,
     val paging: ContentState<Unit> = ContentState.Idle,  // the page loading now
-) : ViewState
+)
 
-sealed interface ItemsIntent : ViewIntent {
+sealed interface ItemsIntent {
     data object Refresh : ItemsIntent
 
     data object ReachedEnd : ItemsIntent
@@ -351,7 +351,7 @@ data class SignUpState(
     val submitted: Boolean = false,                       // the user pressed the button once
     val isSending: Boolean = false,
     val failure: SignUpFailure? = null,                   // what the server said, as a type
-) : ViewState {
+) {
     val emailError: EmailError?
         get() = if (submitted && !email.trim().contains('@')) EmailError.NotAnEmail else null
     val passwordError: PasswordError?
@@ -441,7 +441,7 @@ verifying, locked).
 See `signin/` for a full flow at every form, and [migrations](migrations.md) for when to move.
 
 ```kotlin
-sealed interface OrderPhase : ViewState {
+sealed interface OrderPhase {
     data class Details(val name: String = "") : OrderPhase
 
     data class Address(val name: String, val city: String = "") : OrderPhase
@@ -584,7 +584,7 @@ and the result is tested like any other intent.
 them with the navigator. The state never holds "should navigate".
 
 ```kotlin
-sealed interface AddressIntent : ViewIntent {
+sealed interface AddressIntent {
     data object Change : AddressIntent
 
     data class Picked(val address: String) : AddressIntent      // the picker's answer
@@ -592,7 +592,7 @@ sealed interface AddressIntent : ViewIntent {
     data object Save : AddressIntent
 }
 
-sealed interface AddressEffect : ViewEffect {
+sealed interface AddressEffect {
     data class OpenPicker(val current: String) : AddressEffect
 
     data object Saved : AddressEffect
@@ -753,7 +753,7 @@ fun closingTheSheetCancelsAReportBeingSent() = runTest {
 - Never use `delay` in a UI composable to drive the logic.
 
 ```kotlin
-sealed interface ResendState : ViewState {
+sealed interface ResendState {
     data object Ready : ResendState
 
     data class Waiting(val secondsLeft: Int) : ResendState
@@ -831,7 +831,7 @@ changes the state at once, and puts back exactly what it removed if the call fai
 data class SelectionState(
     val rows: List<Row> = emptyList(),
     val selection: Set<String> = emptySet(),
-) : ViewState {
+) {
     val isSelecting: Boolean get() = selection.isNotEmpty()
 }
 
@@ -900,13 +900,13 @@ effect.
 ```kotlin
 enum class Permission { Unknown, Granted, Denied }
 
-sealed interface ShareIntent : ViewIntent {
+sealed interface ShareIntent {
     data object ShareClicked : ShareIntent
 
     data class PermissionResult(val granted: Boolean) : ShareIntent
 }
 
-sealed interface ShareEffect : ViewEffect {
+sealed interface ShareEffect {
     data object RequestPermission : ShareEffect         // asked of the screen: only the platform can show it
 }
 
@@ -978,7 +978,7 @@ fun withoutPermissionTheLogicAsksTheScreen() = runTest {
 data class FreshState(
     val items: ContentState<List<String>> = ContentState.Idle,
     val loadedAt: Long? = null,                          // internal: when it was last loaded
-) : ViewState
+)
 
 class FreshLogic(
     private val source: Source,

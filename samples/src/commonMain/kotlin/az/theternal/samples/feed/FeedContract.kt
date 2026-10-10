@@ -1,7 +1,6 @@
 package az.theternal.samples.feed
 
 import az.theternal.mvi.ContentState
-import az.theternal.mvi.ViewState
 import az.theternal.samples.data.Post
 import az.theternal.samples.report.ReportIntent
 import az.theternal.samples.report.ReportState
@@ -10,7 +9,7 @@ data class FeedState(
     val posts: ContentState<List<Post>> = ContentState.Idle,
     /** The report sheet: open when not null. */
     val report: ReportState? = null,
-) : ViewState
+)
 
 sealed interface FeedIntent {
     data object Refresh : FeedIntent

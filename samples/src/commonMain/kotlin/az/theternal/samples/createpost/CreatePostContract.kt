@@ -1,8 +1,5 @@
 package az.theternal.samples.createpost
 
-import az.theternal.mvi.ViewEffect
-import az.theternal.mvi.ViewIntent
-import az.theternal.mvi.ViewState
 import az.theternal.samples.createpost.body.BodyIntent
 import az.theternal.samples.createpost.body.BodyState
 import az.theternal.samples.createpost.poll.PollIntent
@@ -18,9 +15,9 @@ data class CreatePostState(
     val poll: PollState = PollState(),
     val tags: TagsState = TagsState(),
     val publish: PublishPhase = PublishPhase.Idle,
-) : ViewState
+)
 
-sealed interface CreatePostIntent : ViewIntent {
+sealed interface CreatePostIntent {
     data class Body(
         val intent: BodyIntent,
     ) : CreatePostIntent
@@ -40,7 +37,7 @@ sealed interface CreatePostIntent : ViewIntent {
     data object Cancel : CreatePostIntent
 }
 
-sealed interface CreatePostEffect : ViewEffect {
+sealed interface CreatePostEffect {
     data class Published(
         val postId: String,
     ) : CreatePostEffect

@@ -1,14 +1,12 @@
 package az.theternal.samples.signin
 
-import az.theternal.mvi.ViewEffect
-import az.theternal.mvi.ViewIntent
 
 /**
  * The sign-in screen's contract. It is the same for the three implementations — level 1, 2 and 3 — and so
  * is the screen: each level keeps its own state and maps it onto [SignInUi]. Moving between levels
  * changes the logic and its mapper, nothing the user sees, and one behaviour test runs against all three.
  */
-sealed interface SignInIntent : ViewIntent {
+sealed interface SignInIntent {
     data class EditEmail(
         val value: String,
     ) : SignInIntent
@@ -30,7 +28,7 @@ sealed interface SignInIntent : ViewIntent {
     data object Back : SignInIntent
 }
 
-sealed interface SignInEffect : ViewEffect {
+sealed interface SignInEffect {
     data object SignedIn : SignInEffect
 }
 

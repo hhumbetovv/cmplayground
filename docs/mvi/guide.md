@@ -89,12 +89,12 @@ data class ReportState(
     val reason: ReportReason? = null,
     val comment: String = "",
     val isSending: Boolean = false,
-) : ViewState {
+) {
     val canSend: Boolean
         get() = reason != null && (reason != ReportReason.Other || comment.isNotBlank()) && !isSending
 }
 
-sealed interface ReportIntent : ViewIntent {
+sealed interface ReportIntent {
     data class SelectReason(val reason: ReportReason) : ReportIntent
 
     data class EditComment(val text: String) : ReportIntent
@@ -102,7 +102,7 @@ sealed interface ReportIntent : ViewIntent {
     data object Send : ReportIntent
 }
 
-sealed interface ReportEffect : ViewEffect {
+sealed interface ReportEffect {
     data object Sent : ReportEffect
 
     data class Failed(val message: String) : ReportEffect
@@ -501,7 +501,7 @@ data class CheckoutState(
     val cursor: String? = null,            // internal: the next page
     val attempt: Int = 0,                  // internal: retries of the payment
     val isPaying: Boolean = false,
-) : ViewState
+)
 
 data class CheckoutUi(val rows: List<RowUi>, val total: String, val canPay: Boolean)
 
