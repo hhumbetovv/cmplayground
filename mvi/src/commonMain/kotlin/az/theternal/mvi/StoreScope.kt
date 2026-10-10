@@ -40,6 +40,13 @@ interface StoreScope<S, in E> {
     fun reduce(partial: Partial<S>)
 
     fun emit(effect: E)
+
+    /**
+     * Runs [block] as work of the store: while it runs, the store is busy ([Store.isBusy]). [launch] and the
+     * work of a phase are work. A binder ([observe], [whileSubscribed]) is not: it never ends, and a store
+     * that is busy forever is a store that cannot be let go.
+     */
+    suspend fun <T> busy(block: suspend () -> T): T
 }
 
 /** An anonymous [Partial]: `setState { copy(name = value) }`. */
@@ -47,7 +54,16 @@ fun <S, E> StoreScope<S, E>.setState(block: S.() -> S) {
     reduce(Partial { state -> state.block() })
 }
 
+/** Work that dies with the store, and counts as work: the store is busy while it runs. */
 fun StoreScope<*, *>.launch(block: suspend CoroutineScope.() -> Unit): Job {
+    return coroutineScope.launch {
+        val self = this
+        busy { self.block() }
+    }
+}
+
+/** A coroutine that is not work: it can run for as long as the store lives, and the store is not busy for it. */
+internal fun StoreScope<*, *>.launchBinder(block: suspend CoroutineScope.() -> Unit): Job {
     return coroutineScope.launch(block = block)
 }
 
@@ -59,7 +75,7 @@ fun <T> StoreScope<*, *>.observe(
     flow: Flow<T>,
     onEach: suspend (T) -> Unit,
 ): Job {
-    return launch { flow.collect { value -> onEach(value) } }
+    return launchBinder { flow.collect { value -> onEach(value) } }
 }
 
 /**
@@ -74,7 +90,7 @@ fun StoreScope<*, *>.whileSubscribed(
     stopTimeoutMillis: Long = DEFAULT_STOP_TIMEOUT_MILLIS,
     block: suspend CoroutineScope.() -> Unit,
 ): Job {
-    return launch {
+    return launchBinder {
         subscribers
             .map { count -> count > 0 }
             .distinctUntilChanged()

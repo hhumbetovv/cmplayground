@@ -103,6 +103,8 @@ internal class ChildScope<PS, PE, S, E>(
         if (isOpen) parent.onEffect(effect)
     }
 
+    override suspend fun <T> busy(block: suspend () -> T): T = parent.busy(block)
+
     fun close() {
         isOpen = false
         coroutineScope.cancel()

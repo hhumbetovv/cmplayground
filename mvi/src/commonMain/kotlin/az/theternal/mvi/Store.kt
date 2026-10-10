@@ -37,6 +37,13 @@ interface Store<S, I, E> {
      */
     val effects: Flow<E>
 
+    /**
+     * True while the logic has work running: launched work, an action, the work of a phase. Not for a
+     * binder (`observe`, `whileSubscribed`), which never ends. What holds a component's ViewModel until its
+     * work is done.
+     */
+    val isBusy: StateFlow<Boolean>
+
     fun postIntent(intent: I)
 }
 
@@ -52,6 +59,7 @@ fun <S, U, I, E> Store<S, I, E>.mapState(transform: (S) -> U): Store<U, I, E> {
     return object : Store<U, I, E> {
         override val state: StateFlow<U> = MappedStateFlow(source.state, transform)
         override val effects: Flow<E> get() = source.effects
+        override val isBusy: StateFlow<Boolean> get() = source.isBusy
 
         override fun postIntent(intent: I) {
             source.postIntent(intent)
@@ -85,6 +93,10 @@ class StoreHost<S, I, E>(
      * "while the screen is visible" would then never stop.
      */
     private val screens = MutableStateFlow(0)
+
+    private val working = MutableStateFlow(0)
+
+    override val isBusy: StateFlow<Boolean> = MappedStateFlow(working) { count -> count > 0 }
 
     override val state: StateFlow<S> = StartingStateFlow()
 
@@ -129,6 +141,15 @@ class StoreHost<S, I, E>(
         override fun emit(effect: E) {
             notify { onEffect(effect) }
             effectChannel.trySend(effect)
+        }
+
+        override suspend fun <T> busy(block: suspend () -> T): T {
+            working.update { it + 1 }
+            try {
+                return block()
+            } finally {
+                working.update { it - 1 }
+            }
         }
     }
 

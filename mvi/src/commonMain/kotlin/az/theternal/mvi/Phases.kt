@@ -69,14 +69,14 @@ fun <S : Any, T : S, E> StoreScope<S, E>.whileIn(
     block: suspend PhaseScope<S, T, E>.(entered: T) -> Unit,
 ): Job {
     val store = this
-    return launch {
+    return launchBinder {
         states
             .map { current ->
                 @Suppress("UNCHECKED_CAST")
                 if (phase.isInstance(current)) Entered(current as T, key(current)) else null
             }.distinctUntilChanged { old, new -> if (old == null || new == null) old === new else old.key == new.key }
             .collectLatest { entered ->
-                if (entered != null) PhaseScope(store, phase, entered.value).block(entered.value)
+                if (entered != null) store.busy { PhaseScope(store, phase, entered.value).block(entered.value) }
             }
     }
 }
