@@ -118,7 +118,9 @@ class ReportLogic(
     private val postId: String,
     private val posts: PostRepository,
 ) : Logic<ReportState, ReportIntent, ReportEffect> {
-    override fun StoreScope<ReportState, ReportEffect>.onIntent(intent: ReportIntent) {
+    private typealias Scope = StoreScope<ReportState, ReportEffect>
+
+    override fun Scope.onIntent(intent: ReportIntent) {
         when (intent) {
             is ReportIntent.SelectReason -> setState { copy(reason = intent.reason) }
             is ReportIntent.EditComment -> setState { copy(comment = intent.text) }
@@ -126,7 +128,7 @@ class ReportLogic(
         }
     }
 
-    private fun StoreScope<ReportState, ReportEffect>.send() {
+    private fun Scope.send() {
         val reason = state.reason
         if (!state.canSend || reason == null) return
         val comment = state.comment.trim()              // gathered before anything suspends
@@ -141,6 +143,7 @@ class ReportLogic(
 }
 ```
 
+The alias on the first line names the scope once for the class (see [section 6](#6-keeping-the-generics-quiet)).
 Inside `onIntent` you have the `StoreScope`, which provides:
 
 - `state`: the state now;

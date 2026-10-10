@@ -3,6 +3,9 @@
 When a screen moves to another level or another host, and how to make the move. Moves go up and down: a
 screen goes up when it crosses a line, and comes back down when it crosses that line back and stays there.
 
+In the code on this page, `Scope` is the logic class's `private typealias Scope = StoreScope<State, Effect>`
+([guide, section 6](guide.md#6-keeping-the-generics-quiet)).
+
 Read the [guide](guide.md) first. This page assumes you know the words used there: level, action, policy,
 phase, slice, slot.
 
@@ -123,7 +126,7 @@ is SearchIntent.EditQuery -> {
 }
 
 // After (level 2)
-override fun StoreScope<SearchState, SearchEffect>.toAction(intent: SearchIntent) = when (intent) {
+override fun Scope.toAction(intent: SearchIntent) = when (intent) {
     is SearchIntent.EditQuery -> {
         reduce(SearchPartial.Query(intent.text))
         SearchAction.Search(query = intent.text.trim(), debounce = true)
@@ -131,7 +134,7 @@ override fun StoreScope<SearchState, SearchEffect>.toAction(intent: SearchIntent
     // …
 }
 override fun policy(action: SearchAction) = Policy.Latest     // the next keystroke cancels this one
-override suspend fun StoreScope<SearchState, SearchEffect>.process(action: SearchAction) {
+override suspend fun Scope.process(action: SearchAction) {
     /* delay, then IO, then reduce */
 }
 ```

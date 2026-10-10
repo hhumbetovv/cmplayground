@@ -4,6 +4,10 @@ The cases real screens have, each with one recommended answer. Read the [guide](
 assumes its model and its rules. Every case has the same shape: **the situation, the rule, the code, the
 test.**
 
+In the snippets, `Scope` is the logic class's own `private typealias Scope = StoreScope<State, Effect>`
+([guide, section 6](guide.md#6-keeping-the-generics-quiet)); a snippet that shows only handlers leaves the
+alias line out.
+
 Code marked *sample* exists in `samples/` and is tested there. Code marked *pattern* uses only the runtime's
 API, but there is no sample of it yet.
 
@@ -43,13 +47,15 @@ sealed interface ProfileIntent : ViewIntent { data object Retry : ProfileIntent 
 
 class ProfileLogic(private val userId: String, private val users: UserRepository) :
     Logic<ProfileState, ProfileIntent, Nothing> {
-    override fun StoreScope<ProfileState, Nothing>.onStart() = load()
+    private typealias Scope = StoreScope<ProfileState, Nothing>
 
-    override fun StoreScope<ProfileState, Nothing>.onIntent(intent: ProfileIntent) = when (intent) {
+    override fun Scope.onStart() = load()
+
+    override fun Scope.onIntent(intent: ProfileIntent) = when (intent) {
         ProfileIntent.Retry -> load()
     }
 
-    private fun StoreScope<ProfileState, Nothing>.load() {
+    private fun Scope.load() {
         setState { copy(profile = profile.reload()) }
         launch {
             val result = safeCall { users.profile(userId) }
@@ -73,7 +79,7 @@ while one runs is ignored. See `FeedLogic`.
 ```kotlin
 override fun policy(action: Unit) = Policy.Drop
 
-override suspend fun StoreScope<FeedState, FeedEffect>.process(action: Unit) {
+override suspend fun Scope.process(action: Unit) {
     setState { copy(posts = posts.reload()) }
     val result = safeCall { repository.feed() }
     setState { copy(posts = result.toContentState()) }
@@ -111,7 +117,7 @@ sealed interface FeedAction {
 ```
 
 ```kotlin
-override fun StoreScope<FeedState, FeedEffect>.toAction(intent: FeedIntent): FeedAction? = when (intent) {
+override fun Scope.toAction(intent: FeedIntent): FeedAction? = when (intent) {
     FeedIntent.Refresh -> FeedAction.Refresh
     FeedIntent.ReachedEnd -> state.cursor?.takeIf { state.hasMore }?.let(FeedAction::LoadMore)
 }
@@ -119,7 +125,7 @@ override fun StoreScope<FeedState, FeedEffect>.toAction(intent: FeedIntent): Fee
 override fun policy(action: FeedAction) = Policy.Latest
 override fun key(action: FeedAction): Any = "feed"      // a refresh cancels a next page, and the reverse
 
-override suspend fun StoreScope<FeedState, FeedEffect>.process(action: FeedAction) {
+override suspend fun Scope.process(action: FeedAction) {
     val cursor = (action as? FeedAction.LoadMore)?.cursor
     setState { copy(page = page.reload()) }
     safeCall { repository.feed(cursor) }
@@ -244,7 +250,7 @@ entered data.
 and has no other logic. The screen never owns the source, and never copies it into a field of its own.
 
 ```kotlin
-override fun StoreScope<CartState, CartEffect>.onStart() {
+override fun Scope.onStart() {
     observe(cart.items) { items -> setState { copy(items = items) } }
 }
 ```
