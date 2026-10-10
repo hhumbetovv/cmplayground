@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -24,14 +25,19 @@ fun <S> Store<S, *, *>.collectAsState(): State<S> {
 }
 
 /**
- * Hands each effect to [onEffect], once. Collected on `Dispatchers.Main.immediate`, so an effect taken
- * from the store is handled before the screen can go away — not dropped between the two.
+ * Hands each effect to [onEffect], once. Collected on [dispatcher], `Dispatchers.Main.immediate` by
+ * default, so an effect taken from the store is handled before the screen can go away — not dropped
+ * between the two. A target that has no Main dispatcher (desktop without `kotlinx-coroutines-swing`) passes
+ * its own.
  */
 @Composable
-fun <E> Store<*, *, E>.CollectEffects(onEffect: suspend (E) -> Unit) {
+fun <E> Store<*, *, E>.CollectEffects(
+    dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    onEffect: suspend (E) -> Unit,
+) {
     val currentOnEffect = rememberUpdatedState(onEffect)
     LaunchedEffect(this) {
-        withContext(Dispatchers.Main.immediate) {
+        withContext(dispatcher) {
             effects.collect { effect -> currentOnEffect.value(effect) }
         }
     }
