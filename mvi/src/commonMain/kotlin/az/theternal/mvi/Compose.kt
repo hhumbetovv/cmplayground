@@ -5,17 +5,24 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** The store's state for a screen, collected while the screen is at least started. */
@@ -63,35 +70,77 @@ inline fun <T, R> State<T>.select(
 }
 
 /**
- * A ViewModel store per list item — Decompose's `childItems`. An item's component ViewModels live as
- * long as the item is in the list, not as long as it is on screen: scrolling an item away and back keeps
- * its state, and an item removed from the list has its ViewModels cleared. While an item is scrolled
- * away nothing collects its state, so its `whileSubscribed` work pauses.
+ * A ViewModel store per list item, for component ViewModels. An item's ViewModels live while the item is
+ * on screen, and after it has scrolled away for as long as their work runs: a like that is being sent is
+ * not cancelled by a scroll, and a ViewModel that has nothing running is let go. The ones kept are the
+ * items on screen and those with work in flight, so the number does not grow with the list.
  *
- * Without this, a component ViewModel per item either lives in the screen's store until the screen
- * closes (a long feed keeps every one), or in a store remembered by the item (its state is lost when the
- * item scrolls away).
+ * "Work" is what [Store.isBusy] says: launched work, actions, the work of a phase. A ViewModel's state is
+ * gone with it, so what a finished piece of work produced belongs in the list's data source (a repository
+ * or a cache) before it ends; the item reads it from there when it comes back.
+ *
+ * An item that leaves the list is cleared at once, working or not.
  */
 class ItemStores : ViewModel() {
-    private val owners = mutableMapOf<Any, ViewModelStoreOwner>()
+    private class Entry(
+        val owner: ViewModelStoreOwner,
+    ) {
+        var onScreen = 0
+        var release: Job? = null
+    }
 
-    fun owner(key: Any): ViewModelStoreOwner {
-        return owners.getOrPut(key) {
-            object : ViewModelStoreOwner {
-                override val viewModelStore = ViewModelStore()
-            }
+    private val entries = mutableMapOf<Any, Entry>()
+
+    fun owner(key: Any): ViewModelStoreOwner = entry(key).owner
+
+    private fun entry(key: Any): Entry {
+        return entries.getOrPut(key) {
+            Entry(
+                object : ViewModelStoreOwner {
+                    override val viewModelStore = ViewModelStore()
+                },
+            )
         }
     }
 
-    /** Clears the stores of the items that are no longer in [keys]. */
+    /** The item is composed: nothing releases it now. */
+    internal fun attach(key: Any) {
+        val entry = entry(key)
+        entry.onScreen++
+        entry.release?.cancel()
+        entry.release = null
+    }
+
+    /** The item left the composition: it is released as soon as none of its ViewModels is busy. */
+    internal fun detach(key: Any) {
+        val entry = entries[key] ?: return
+        entry.onScreen--
+        if (entry.onScreen > 0) return
+        entry.release = viewModelScope.launch {
+            val busy = busyOf(entry.owner)
+            if (busy.isNotEmpty()) combine(busy) { states -> states.any { it } }.first { isBusy -> !isBusy }
+            if (entry.onScreen == 0) clear(key)
+        }
+    }
+
+    private fun busyOf(owner: ViewModelStoreOwner): List<StateFlow<Boolean>> {
+        val store = owner.viewModelStore
+        return store.keys().mapNotNull { name -> (store[name] as? StoreOwner<*, *, *>)?.store?.isBusy }
+    }
+
+    /** Clears the stores of the items that are no longer in [keys], busy or not. */
     fun retain(keys: Set<Any>) {
-        val gone = owners.keys - keys
-        gone.forEach { key -> owners.remove(key)?.viewModelStore?.clear() }
+        (entries.keys - keys).forEach(::clear)
+    }
+
+    private fun clear(key: Any) {
+        val entry = entries.remove(key) ?: return
+        entry.release?.cancel()
+        entry.owner.viewModelStore.clear()
     }
 
     override fun onCleared() {
-        owners.values.forEach { owner -> owner.viewModelStore.clear() }
-        owners.clear()
+        entries.keys.toList().forEach(::clear)
     }
 }
 
@@ -102,7 +151,8 @@ fun rememberItemStores(
     name: String = "items",
 ): ItemStores {
     val stores = viewModel(key = "ItemStores:$name") { ItemStores() }
-    SideEffect { stores.retain(keys.toSet()) }
+    val keySet = remember(keys) { keys.toSet() }
+    SideEffect { stores.retain(keySet) }
     return stores
 }
 
@@ -113,5 +163,9 @@ fun ItemScope(
     key: Any,
     content: @Composable () -> Unit,
 ) {
+    DisposableEffect(stores, key) {
+        stores.attach(key)
+        onDispose { stores.detach(key) }
+    }
     CompositionLocalProvider(LocalViewModelStoreOwner provides stores.owner(key), content = content)
 }
