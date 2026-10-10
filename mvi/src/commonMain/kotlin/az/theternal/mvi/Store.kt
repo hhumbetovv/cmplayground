@@ -79,6 +79,13 @@ class StoreHost<S, I, E>(
     private val effectCollector = Mutex()
     private var isStarted = false
 
+    /**
+     * How many collect the state the way a screen does, through [state]. Not `mutableState.subscriptionCount`:
+     * that also counts the store's own collectors (a keeper, `whileIn`, `runOn`), and the work that runs
+     * "while the screen is visible" would then never stop.
+     */
+    private val screens = MutableStateFlow(0)
+
     override val state: StateFlow<S> = StartingStateFlow()
 
     override val effects: Flow<E> = flow {
@@ -96,7 +103,7 @@ class StoreHost<S, I, E>(
     private val storeScope = object : StoreScope<S, E> {
         override val state: S get() = mutableState.value
         override val states: Flow<S> get() = mutableState
-        override val subscribers: StateFlow<Int> get() = mutableState.subscriptionCount
+        override val subscribers: StateFlow<Int> get() = screens
 
         override val coroutineScope: CoroutineScope = CoroutineScope(
             scope.coroutineContext +
@@ -168,7 +175,12 @@ class StoreHost<S, I, E>(
 
         override suspend fun collect(collector: FlowCollector<S>): Nothing {
             startIfLazy()
-            mutableState.collect(collector)
+            screens.update { it + 1 }
+            try {
+                mutableState.collect(collector)
+            } finally {
+                screens.update { it - 1 }
+            }
         }
     }
 }

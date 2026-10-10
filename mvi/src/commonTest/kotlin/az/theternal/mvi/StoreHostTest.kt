@@ -1,6 +1,8 @@
 package az.theternal.mvi
 
+import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
@@ -8,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.builtins.serializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -162,5 +165,48 @@ class StoreHostTest {
         assertTrue(source.subscriptionCount.value > 0, "still running within the stop timeout")
         advanceTimeBy(1_500)
         assertEquals(0, source.subscriptionCount.value)
+    }
+
+    private class Ticking : Logic<Int, Unit, Nothing> {
+        var ticks = 0
+
+        override fun StoreScope<Int, Nothing>.onStart() {
+            whileSubscribed {
+                while (true) {
+                    delay(1_000)
+                    ticks++
+                }
+            }
+            // The store's own collectors, which are not a screen.
+            whileIn(Int::class) { }
+        }
+
+        override fun StoreScope<Int, Nothing>.onIntent(intent: Unit) = Unit
+    }
+
+    @Test
+    fun theStoresOwnCollectorsAreNotAScreen() = runTest {
+        val handle = SavedStateHandle()
+        val keeper = handle.keeper<Int, Int>("count", Int.serializer(), save = { it }, restore = { this })
+        val logic = Ticking()
+        val store = StoreHost(0, backgroundScope, logic, keeper = keeper)
+        store.postIntent(Unit)
+        runCurrent()
+
+        // A keeper and a `whileIn` collect the state, and nobody looks at the screen: nothing may run.
+        advanceTimeBy(20_000)
+        assertEquals(0, logic.ticks)
+
+        val screen = backgroundScope.launch { store.state.collect { } }
+        runCurrent()
+        advanceTimeBy(3_500)
+        assertEquals(3, logic.ticks)
+
+        // Scrolled away: it goes on through the stop timeout, then stops for good.
+        screen.cancel()
+        advanceTimeBy(DEFAULT_STOP_TIMEOUT_MILLIS + 1_000)
+        val stopped = logic.ticks
+        advanceTimeBy(20_000)
+        assertEquals(stopped, logic.ticks)
     }
 }
