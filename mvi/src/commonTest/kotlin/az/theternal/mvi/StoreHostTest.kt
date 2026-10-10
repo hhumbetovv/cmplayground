@@ -234,4 +234,31 @@ class StoreHostTest {
         val store = StoreHost(0, backgroundScope, Failing())
         assertFailsWith<IllegalStateException> { store.postIntent("throw") }
     }
+
+    /** A guard reads a flag that the intent wrote in its synchronous part, before it launched anything. */
+    private class Guarded : Logic<Boolean, Unit, Nothing> {
+        var requests = 0
+
+        override fun StoreScope<Boolean, Nothing>.onIntent(intent: Unit) {
+            if (state) return
+            setState { true }
+            launch {
+                requests++
+                delay(1_000)
+                setState { false }
+            }
+        }
+    }
+
+    @Test
+    fun aFlagWrittenInTheSynchronousPartGuardsTheSecondTapOnAnyScope() = runTest {
+        val logic = Guarded()
+        // backgroundScope runs on a test dispatcher: launched work is queued until runCurrent().
+        val store = StoreHost(false, backgroundScope, logic)
+        store.postIntent(Unit)
+        store.postIntent(Unit)
+        runCurrent()
+        advanceTimeBy(2_000)
+        assertEquals(1, logic.requests)
+    }
 }
