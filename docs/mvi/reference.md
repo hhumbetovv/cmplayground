@@ -47,7 +47,7 @@ A logic keeps the state it needs, which is often not what the screen draws: phas
 `store.mapState { it.toUi() }` gives the screen a `Store<Ui, …>` (Orbit's internal and external state). The
 sign-in sample keeps three different states behind one `Store<SignInUi, …>`, so its screen cannot tell which
 level runs. The mapping runs on every read: it must be pure and cheap. Per-component mapping stays in the UI,
-with `select { }`.
+with `select { }`. When to use it, what it costs, and how to test through it: [guide, section 11](guide.md#11-internal-state).
 
 ### Effects
 

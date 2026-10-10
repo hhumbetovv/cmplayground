@@ -20,6 +20,10 @@ Contents:
 8. [Names and files](#8-names-and-files)
 9. [Review checklist](#9-review-checklist)
 10. [Common mistakes](#10-common-mistakes)
+11. [Internal state: what the logic keeps and the screen does not draw](#11-internal-state)
+
+Cases that come up in real screens (pagination, optimistic updates, forms, shared state, results from other
+screens, and more) are in the [cookbook](cookbook.md).
 
 ## 1. The model
 
@@ -254,7 +258,8 @@ Each rule has a reason. A rule broken on purpose needs a comment that gives a re
 
 1. **One immutable state per store.** It is a `data class`, or at level 3 a sealed type of phases. Do not use
    `var` fields, mutable collections, or a `MutableStateFlow` per field. The state can then be compared in a
-   test, saved, logged and diffed.
+   test, saved, logged and diffed. The state is what the *logic* needs to decide the next step. What the
+   *screen* draws can be a mapped view of it ([section 11](#11-internal-state)).
 2. **Store facts, compute the rest.** `canSend` is a property. A stored copy of it could go stale.
 3. **A request's result is a `ContentState`** (`Idle`, `Loading(previous)`, `Success`, `Error`), not three
    fields that can contradict each other.
@@ -284,6 +289,7 @@ Each rule has a reason. A rule broken on purpose needs a comment that gives a re
 12. **Dependencies come through the constructor.** A logic must not use Android, Compose, `viewModelScope`
     or a service locator.
 13. **Do not keep `Job`s.** A `Job?` field is the signal to move to level 2, where a policy does that work.
+    Other private fields in a logic are allowed only in the three cases of [section 11](#11-internal-state).
 
 ### ViewModel
 
@@ -407,6 +413,9 @@ For every pull request that adds or changes a screen:
       result still current" checks. Any of these means level 2.
 - [ ] No three flags exclude each other, and no handler starts with a guard that reads two flags. Either
       means level 3.
+- [ ] A logic that has a private `var` or a mutable collection falls into one of the three cases of
+      [section 11](#11-internal-state), and says which in a comment.
+- [ ] If the logic's state is not what the screen draws, the ViewModel maps it with `mapState`.
 - [ ] The ViewModel is a `StoreOwner` with one line.
 - [ ] Only the route composable takes the `Store`.
 - [ ] Children do not reference each other, and each part of the state has one writer.
@@ -426,4 +435,120 @@ For every pull request that adds or changes a screen:
 | One slice calling another (`tags.postIntent(…)` from the poll slice) | A hidden coupling: the split exists in name only | The parent routes |
 | A parent writing into a child's state | Two writers for one part of the state, so changes race | Send the child an intent |
 | A `StateHolder` with mutable fields | No single transition point, so no logs, no replay, no value to compare | One immutable state and mappers |
+| A `private var lastQuery` in the logic that the screen also needs | State that is read by the screen but hidden from the store: it cannot be tested, kept or logged | Put it in the state |
+| A `private var` that changes what the logic does next (`var retries = 0`) | Behaviour the state does not show, lost on process death, invisible in a test | Put it in the state, or in the action |
+| A `mutableMapOf` cache that is never reset | It outlives the data it describes | Keep the cache in the repository, which owns data lifetime |
 | Moving up a level "to be ready" | Code that pays for a problem the screen does not have | Wait for the line |
+
+## 11. Internal state
+
+"What does the logic remember?" has five different answers. Each has one home. Choosing the wrong home is the
+source of most hidden-state bugs.
+
+| What it is | Example | Home |
+|---|---|---|
+| **A fact the screen draws** | the query, the list, `isSending` | The state |
+| **A fact only the logic needs, and that survives rotation** | a phase's attempt number, a request's page cursor, the id of the draft being edited | **The state**, hidden from the screen with `mapState` |
+| **A fact that is derived** | `canSend`, `isEmpty` | A property of the state |
+| **Bookkeeping about work, not about data** | which actions run, a machine's current node | The runtime (`ActionLogic`, `MachineLogic`, `whileIn`). You never write it |
+| **A resource, not a value** | an open socket, a `Job`, a cache of decoded images | The data layer (repository, use case), not the logic |
+
+The rule behind the table: **if the logic's next decision depends on it, it is state.** A private field that
+affects behaviour is state the store cannot see. It is not in a test's `expectState`, not in the logs, not in
+a keeper, and it is gone when the logic is recreated. Move it into the state.
+
+### 11.1 Hidden from the screen: `mapState`
+
+The state can hold more than the screen draws. `mapState` gives the screen a `Store<Ui, I, E>`:
+
+```kotlin
+data class CheckoutState(
+    val items: List<CartItem> = emptyList(),
+    val cursor: String? = null,            // internal: the next page
+    val attempt: Int = 0,                  // internal: retries of the payment
+    val isPaying: Boolean = false,
+) : ViewState
+
+data class CheckoutUi(val rows: List<RowUi>, val total: String, val canPay: Boolean)
+
+fun CheckoutState.toUi() = CheckoutUi(
+    rows = items.map { it.toRowUi() },
+    total = items.sumOf { it.price }.format(),
+    canPay = items.isNotEmpty() && !isPaying,
+)
+
+class CheckoutViewModel(…) : ViewModel(), StoreOwner<CheckoutUi, CheckoutIntent, CheckoutEffect> {
+    override val store = store(CheckoutState(), CheckoutLogic(…)).mapState { it.toUi() }
+}
+```
+
+Use it when:
+
+- the state has fields the screen never reads (cursors, attempts, ids, timestamps);
+- the state is a sealed type of phases and the screen wants one flat shape (level 3, as in `SignInUi`);
+- you want to change the logic's state without changing the screen (the sign-in sample does exactly that at
+  four levels).
+
+Do not use it when the state is already what the screen draws. A mapper that copies every field adds a type
+and no value.
+
+Costs and rules:
+
+- `transform` runs on every read, and it is not cached. It must be **pure and cheap**. A mapping that sorts
+  or formats a long list belongs in the logic (store the result in the state), or inside a `select { }` in
+  the UI that recomposes only when its part changes.
+- The ViewModel then declares `StoreOwner<Ui, I, E>`. The logic still has `Logic<State, I, E>`.
+- Per-component mapping stays in the UI with `select { }` and mappers like `toBodyUi()`. `mapState` is for
+  the whole screen, once, at the ViewModel.
+
+### 11.2 Testing a mapped store
+
+Two layers, two kinds of test:
+
+| Test | Through | Asserts |
+|---|---|---|
+| The logic's behaviour | `storeTest(initial, logic)`, the internal state | Every change of the state, including the internal fields |
+| What the screen sees | `StoreHost(initial, scope, logic).mapState(toUi)` | `toUi` of each state: rows, `canPay` |
+| The mapper | A plain unit test | `CheckoutState(…).toUi() == CheckoutUi(…)` |
+
+When a behaviour test must pass for several implementations of one screen, it goes through the mapped store
+(see `SignInBehaviourTest`). The mapper itself is tested once, as a pure function.
+
+### 11.3 The three cases where a private field is allowed
+
+1. **A constant or a dependency:** `private val posts: PostRepository`, `private val debounce = 300L`. It
+   never changes.
+2. **A host-owned helper** that the runtime already requires: a `Slice`, a `Slot` or a `MachineLogic` field,
+   attached in `onStart`. A logic instance belongs to one host, so this bookkeeping lives with it.
+3. **A cache that is only an optimisation,** where losing it changes speed and not behaviour (a compiled
+   `Regex`, a formatter). If losing it changes what the user sees, it is state.
+
+Anything else, say `private var page = 0`, fails the rule above (its next decision depends on it). Put it in the state, and `mapState` it away
+if the screen does not draw it.
+
+### 11.4 Internal state and process death
+
+A keeper saves a *part* and merges it back into the initial state (see [reference](reference.md#surviving-process-death)).
+The internal fields follow the same rule as the rest:
+
+| Field | Keep? |
+|---|---|
+| What the user typed or chose (a draft, a step, a selection) | Yes |
+| A cursor, an attempt count, a token, a loaded list | No: it is fetched or started again |
+| A phase such as `Submitting` | Never: the work behind it is gone |
+
+That is a second reason to keep internal fields in the state and not in a `private var`: a keeper can decide
+about a field of the state, and cannot see a `private var`.
+
+### 11.5 Where each thing goes, in one page
+
+| I need to… | Do this |
+|---|---|
+| Remember what the last request was, to ignore a stale answer | Level 2, `Policy.Latest`. No field |
+| Know the next page | `cursor` in the state, `mapState` away |
+| Count retries | `attempt` in the state or in the action |
+| Not run the same work twice at once | A `Policy` (`Drop` or `Latest`) |
+| Share a loaded list between screens | A repository that exposes a `Flow`; `observe` it in `onStart` |
+| Cache decoded or parsed data | The repository or a use case |
+| Run work only while the screen is on | `observeWhileSubscribed` / `whileSubscribed` |
+| Hold something for the screen's whole life that is not data | It is a dependency: the constructor |
