@@ -1,7 +1,9 @@
 package az.theternal.mvi
 
 import androidx.lifecycle.SavedStateHandle
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.KSerializer
@@ -31,6 +33,7 @@ fun <S, T> SavedStateHandle.keeper(
     serializer: KSerializer<T>,
     save: (S) -> T,
     restore: S.(T) -> S,
+    saveIntervalMillis: Long = DEFAULT_SAVE_INTERVAL_MILLIS,
 ): StateKeeper<S> {
     val handle = this
     return StateKeeper(
@@ -49,11 +52,16 @@ fun <S, T> SavedStateHandle.keeper(
             if (part == null) initial else initial.restore(part)
         },
         save = { states ->
-            states.map(save).distinctUntilChanged().collect { part ->
+            // The first change is written at once; the ones that follow within the interval are merged into
+            // one write of the last value, so typing is not encoded on every key.
+            states.map(save).distinctUntilChanged().conflate().collect { part ->
                 handle[key] = keeperJson.encodeToString(serializer, part)
+                delay(saveIntervalMillis)
             }
         },
     )
 }
 
 private val keeperJson = Json { ignoreUnknownKeys = true }
+
+const val DEFAULT_SAVE_INTERVAL_MILLIS = 300L

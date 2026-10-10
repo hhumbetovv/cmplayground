@@ -2,6 +2,7 @@ package az.theternal.mvi
 
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.Serializable
@@ -51,5 +52,19 @@ class StateKeeperTest {
         val handle = SavedStateHandle(mapOf("form" to "{\"title\": 42}"))
         val store = StoreHost(Form(), backgroundScope, Typing(), keeper = handle.formKeeper())
         assertEquals(Form(), store.state.value)
+    }
+
+    @Test
+    fun typingIsWrittenOnceAnIntervalAndTheLastValueIsNotLost() = runTest {
+        val handle = SavedStateHandle()
+        val store = StoreHost(Form(), backgroundScope, Typing(), keeper = handle.formKeeper())
+        listOf("A", "Ad", "Ada").forEach { typed ->
+            store.postIntent(typed)
+            runCurrent()
+        }
+        // The first change is written at once; the others wait for the interval, and then the last is written.
+        assertEquals("""{"name":"A"}""", handle.get<String>("form"))
+        advanceTimeBy(DEFAULT_SAVE_INTERVAL_MILLIS + 1)
+        assertEquals("""{"name":"Ada"}""", handle.get<String>("form"))
     }
 }
