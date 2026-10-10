@@ -73,13 +73,11 @@ class SignInLevel2Logic(
 
     override fun policy(action: SignInLevel2Action): Policy {
         return when (action) {
-            is SignInLevel2Action.Countdown -> Policy.Latest
-            is SignInLevel2Action.SignIn, is SignInLevel2Action.Verify, is SignInLevel2Action.Resend -> Policy.Drop
+            is SignInLevel2Action.Countdown -> Policy.Latest(action.kind)
+            is SignInLevel2Action.SignIn -> Policy.Drop("sign in")
+            is SignInLevel2Action.Verify -> Policy.Drop("verify")
+            is SignInLevel2Action.Resend -> Policy.Drop("resend")
         }
-    }
-
-    override fun key(action: SignInLevel2Action): Any {
-        return if (action is SignInLevel2Action.Countdown) action.kind else action::class
     }
 
     override suspend fun Scope.process(action: SignInLevel2Action) {

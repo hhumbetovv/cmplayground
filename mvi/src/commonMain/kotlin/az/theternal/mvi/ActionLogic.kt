@@ -4,19 +4,29 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** What happens when an action starts while another with the same key is still running. */
-enum class Policy {
+/**
+ * What happens when an action starts while another with the same key is still running. Every policy that
+ * makes actions meet takes its key: there is no default, because a default shared by a whole class of
+ * actions makes "follow user B" cancel "follow user A" without a sign that anything is wrong.
+ */
+sealed interface Policy {
     /** Both run. Independent work: a like on one post and on another. */
-    Parallel,
+    data object Parallel : Policy
 
     /** The running one is cancelled — its result is stale before it arrives. Search as you type, a filter. */
-    Latest,
+    data class Latest(
+        val key: Any,
+    ) : Policy
 
     /** The new one is ignored while one runs. Submit, pay, pull to refresh. */
-    Drop,
+    data class Drop(
+        val key: Any,
+    ) : Policy
 
     /** The new one waits for the running one. Writes that build on each other: reorder, append. */
-    Queue,
+    data class Queue(
+        val key: Any,
+    ) : Policy
 }
 
 /**
@@ -39,10 +49,8 @@ abstract class ActionLogic<S, I, A : Any, E> : Logic<S, I, E> {
      */
     protected abstract fun StoreScope<S, E>.toAction(intent: I): A?
 
+    /** Actions that share a policy's key meet under it: `Policy.Latest("search")`, `Policy.Latest("follow:$id")`. */
     protected open fun policy(action: A): Policy = Policy.Parallel
-
-    /** Actions with one key meet under their policy; by default, all actions of one class. */
-    protected open fun key(action: A): Any = action::class
 
     protected abstract suspend fun StoreScope<S, E>.process(action: A)
 
@@ -52,7 +60,7 @@ abstract class ActionLogic<S, I, A : Any, E> : Logic<S, I, E> {
 
     /** Runs [action] as if an intent had produced it — for work the logic starts itself (on start, on a timer). */
     protected fun StoreScope<S, E>.dispatch(action: A) {
-        runner.run(scope = this, key = key(action), policy = policy(action)) { process(action) }
+        runner.run(scope = this, policy = policy(action)) { process(action) }
     }
 }
 
@@ -63,21 +71,20 @@ internal class ActionRunner {
 
     fun run(
         scope: StoreScope<*, *>,
-        key: Any,
         policy: Policy,
         block: suspend () -> Unit,
     ) {
         when (policy) {
             Policy.Parallel -> scope.launch { block() }
-            Policy.Latest -> {
-                running[key]?.cancel()
-                track(key, scope.launch { block() })
+            is Policy.Latest -> {
+                running[policy.key]?.cancel()
+                track(policy.key, scope.launch { block() })
             }
-            Policy.Drop -> if (running[key]?.isActive != true) {
-                track(key, scope.launch { block() })
+            is Policy.Drop -> if (running[policy.key]?.isActive != true) {
+                track(policy.key, scope.launch { block() })
             }
-            Policy.Queue -> {
-                val queue = queues.getOrPut(key) { Mutex() }
+            is Policy.Queue -> {
+                val queue = queues.getOrPut(policy.key) { Mutex() }
                 scope.launch { queue.withLock { block() } }
             }
         }

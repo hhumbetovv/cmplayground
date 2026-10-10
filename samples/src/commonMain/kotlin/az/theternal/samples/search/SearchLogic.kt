@@ -38,12 +38,10 @@ class SearchLogic(
         }
     }
 
-    override fun policy(action: SearchAction) = Policy.Latest
-
-    override fun key(action: SearchAction): Any {
+    override fun policy(action: SearchAction): Policy {
         return when (action) {
-            is SearchAction.Search -> "search"
-            is SearchAction.SetFollowing -> "follow:${action.user.id}"
+            is SearchAction.Search -> Policy.Latest("search")
+            is SearchAction.SetFollowing -> Policy.Latest("follow:${action.user.id}")
         }
     }
 

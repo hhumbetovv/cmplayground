@@ -59,7 +59,7 @@ class FeedLogic(
         return null
     }
 
-    override fun policy(action: Unit) = Policy.Drop
+    override fun policy(action: Unit) = Policy.Drop("refresh")
 
     override suspend fun Scope.process(action: Unit) {
         setState { copy(posts = posts.reload()) }

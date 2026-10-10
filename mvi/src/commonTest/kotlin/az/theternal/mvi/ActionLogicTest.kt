@@ -17,8 +17,6 @@ class ActionLogicTest {
 
         override fun policy(action: Pair<String, Long>) = policy
 
-        override fun key(action: Pair<String, Long>) = "one key"
-
         override suspend fun StoreScope<List<String>, Nothing>.process(action: Pair<String, Long>) {
             delay(action.second)
             setState { this + action.first }
@@ -44,22 +42,22 @@ class ActionLogicTest {
 
     @Test
     fun latestCancelsTheRunningOneSoItsStaleResultNeverLands() {
-        assertEquals(listOf("fast"), runPolicy(Policy.Latest))
+        assertEquals(listOf("fast"), runPolicy(Policy.Latest("k")))
     }
 
     @Test
     fun dropIgnoresTheNewOneWhileOneRuns() {
-        assertEquals(listOf("slow"), runPolicy(Policy.Drop))
+        assertEquals(listOf("slow"), runPolicy(Policy.Drop("k")))
     }
 
     @Test
     fun queueRunsThemOneAfterAnotherInOrder() {
-        assertEquals(listOf("slow", "fast"), runPolicy(Policy.Queue))
+        assertEquals(listOf("slow", "fast"), runPolicy(Policy.Queue("k")))
     }
 
     @Test
     fun dropAcceptsAgainOnceTheRunningOneIsDone() = runTest {
-        val store = StoreHost(emptyList(), backgroundScope, Logging(Policy.Drop))
+        val store = StoreHost(emptyList(), backgroundScope, Logging(Policy.Drop("k")))
         store.postIntent("first" to 100L)
         advanceTimeBy(1_000)
         store.postIntent("second" to 100L)

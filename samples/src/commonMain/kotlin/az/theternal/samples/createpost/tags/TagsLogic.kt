@@ -41,7 +41,7 @@ class TagsLogic(
         }
     }
 
-    override fun policy(action: String) = Policy.Latest
+    override fun policy(action: String) = Policy.Latest("tags")
 
     override suspend fun Scope.process(action: String) {
         if (action.isEmpty()) {

@@ -43,7 +43,7 @@ class LikeLogic(
         return SetLiked(liked = liked, before = before)
     }
 
-    override fun policy(action: SetLiked) = Policy.Latest
+    override fun policy(action: SetLiked) = Policy.Latest("like")
 
     override suspend fun Scope.process(action: SetLiked) {
         safeCall { posts.setLiked(postId, action.liked) }
