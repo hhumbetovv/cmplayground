@@ -22,7 +22,7 @@ there are five hosts:
 | `store(initial, logic)` in a ViewModel that is a `StoreOwner` | a screen, or a component with its own ViewModel |
 | `Slice(logic, get, set, onEffect)` inside a parent logic | one part of a bigger screen, for as long as the screen lives |
 | `Slot(get, set, create, onEffect)` inside a parent logic | a part that exists only while it is open: a dialog, a sheet |
-| `ItemScope(stores, key)` around a list item | a component ViewModel per list item |
+| `ItemScope(items, key)` around a list item | a component ViewModel per list item |
 | `StoreHost(initial, scope, logic)`, or `storeTest { }` | a test |
 
 Because of this, moving a piece of logic is a change of host and not a rewrite. That is what keeps migration
@@ -67,10 +67,39 @@ These are set once for the app, through its base ViewModel or its DI:
     A ViewModel created but never shown does no work.
   - `Eagerly` runs it when the store is created.
   - `Manually` runs it only when `start()` is called. Tests use it to look at the state before the start.
-- `onError` gets every failure, in an intent or in launched work. The store keeps working.
-- `observer` sees every intent, every change of state (with the `Partial` that made it), and every effect, in
-  order. It is the hook for debug logs and analytics, and the test DSL is built on it. Named partials make
-  the logs readable: `SearchPartial.Results`, not `<lambda>`.
+- `onError` gets every failure, in an intent or in launched work. By default it **throws**: in development
+  and in tests a bug crashes. An app sets one that reports the failure, and the store then keeps working.
+- `observers` is a list of `StoreObserver`. Each sees every intent, every change of state (with the `Partial`
+  that made it), and every effect, in the order of the list; one that fails is reported to `onError` and the
+  others still hear. They are the hook for debug logs and analytics, and the test DSL is built on one. Named
+  partials make the logs readable: `SearchPartial.Results`, not `<lambda>`. A test builds its own settings, so
+  an app's observers do not run in it.
+
+### Threading and ordering
+
+The store runs on one thread, the main thread, and several rules rest on that:
+
+- **Intents are posted from the main thread.** The running work is kept in plain maps (`ActionRunner`), and
+  the synchronous part of an intent runs on the caller's thread.
+- **`postIntent` returns when the intent's synchronous part is done:** `toAction` or `onIntent` has run, and
+  its `reduce`/`setState` calls are in the state. So a guard in the next intent sees the flag that the one
+  before wrote. This holds for any scope, since it does not depend on how the work is launched.
+- **Work starts as the scope dispatches it.** A ViewModel's scope is `Dispatchers.Main.immediate`, so launched
+  work runs up to its first suspension before `postIntent` returns; a test's scope (`StandardTestDispatcher`)
+  runs it at the next `runCurrent()`. Do not rely on that part: **write the flag a guard reads in the
+  synchronous part**, before `launch`, as `ReportLogic` writes `isSending`. A flag written inside the
+  `launch` is too late for the second tap whenever the work is not started at once.
+- **`UNDISPATCHED` start was considered and not adopted.** It would make launched work run up to its first
+  suspension on the caller's thread for every scope, but nothing in the samples needs it (the guards write in
+  the synchronous part), and its cost is real: heavy work before the first suspension would block the caller,
+  and a test's timing changes. The rule above is enough.
+
+### Work and binders: `isBusy`
+
+`Store.isBusy` is true while the logic has **work** running: launched work (`launch`), an action's `process`,
+the work of a phase (`whileIn`, `runOn`). A **binder** is not work: `observe`, `observeWhileSubscribed` and
+`whileSubscribed` run for as long as the store lives, and a store that is busy forever cannot be let go. What
+holds a component ViewModel while its request runs is this ([`ItemViewModels`](#component-viewmodels-in-a-list)).
 
 ## The levels
 
@@ -78,29 +107,28 @@ These are set once for the app, through its base ViewModel or its DI:
 |---|---|---|---|
 | **1 · Direct** | No request can overlap another, and there are no exclusive modes | `Logic`: intents call `setState`, a request is `launch`ed by hand | `report/` |
 | **2 · Actions** | Work overlaps: search as you type, double taps, a request per list item | `ActionLogic`: intent → action (parameters gathered) → `process` under a `Policy` → `Partial`s | `search/`, `feed/` |
-| **3 · Phases** | The screen is in exactly one of several phases, and the transitions are the logic | A sealed state of phases. Either plain code (`whileIn`, `runOn`) or a graph in the state-machine library (`machineLogic`) | `signin/level3/`, `createpost/publish/` |
+| **3 · Phases** | The screen is in exactly one of several phases, and the transitions are the logic | A sealed state of phases; intents handled per phase, work bound with `whileIn` and `runOn` | `signin/level3/`, `createpost/publish/` |
 | **4 · Slices** | Parts of the screen change for different reasons | A composition-root `Logic` with one `Slice` per part, each slice at its own level | `createpost/` |
 
 Component ViewModels are not a level. They are a way of hosting: a component whose logic owns its IO gets
 its own ViewModel (see `feed/`).
 
-### Level 3, with or without the library
+### Level 3
 
-The phases, and the transitions between them, are the same either way. In the sign-in sample, both versions
-call the same pure functions (`submitted()`, `answered(result)`, `ticked()`). Only the wiring differs:
+The phases are a sealed type, the transitions between them are pure functions (`submitted()`,
+`answered(result)`, `ticked()`), and the wiring is plain code:
 
-| | Plain (`SignInPhasesLogic`) | Library (`signInLevel3Logic`) |
-|---|---|---|
-| An intent | `when (phase)`, then `when (intent)`; a phase that does not list it ignores it | An event; a phase without a handler ignores it |
-| A phase's work | `whileIn(Phase::class) { }` starts on entering, is cancelled on leaving | `sideEffect { }` |
-| A result | `setState { answered(result) }`, which is ignored if the phase was left | An internal event, `send(Answered(result))`, and a handler |
-| Work an intent starts within a phase | `runOn(Phase::class) { }`, cancelled if the phase is left | A key on a side effect (`key = { it.resends }`) |
-| Extra types | None | A sealed class of events |
+| | How |
+|---|---|
+| An intent | `when (phase)`, then `when (intent)`; a phase that does not list it ignores it |
+| A phase's work | `whileIn(Phase::class) { }` starts on entering, is cancelled on leaving |
+| A result | `setState { answered(result) }`, which is ignored if the phase was left |
+| Work an intent starts within a phase | `runOn(Phase::class) { }`, cancelled if the phase is left |
 
-**Start plain.** Move to the library when the graph is big enough that it reads better as one declaration,
-or when its compile-time check (missing or duplicate phases) is worth a dependency. `whileIn` restarts its
-work only on entering the phase, so it has no "key defaults to the whole state" trap; when the work depends
-on something inside the phase, it takes a `key`.
+`whileIn` restarts its work only on entering the phase, so a phase that updates its own data (an upload's
+progress, a countdown) keeps its work running; when the work depends on something inside the phase, it takes
+a `key`. The compiler checks the `when` over the sealed phases for a missing one. There is no graph as one
+declaration; the transitions file and the `when` are its nearest thing.
 
 ## Moving between levels
 
@@ -117,7 +145,7 @@ level are in [migrations](migrations.md).
 | **Intent** | What the user did, in the user's words | The screen decides behaviour (`onClick = { vm.submit(email.trim()) }`) |
 | **Gather** (intent → action or event) | Reading the state, collecting the parameters, validating, and the synchronous changes | `process` reads a state that changed while it was suspended. This is the "Event" layer of the original idea: it builds what the action needs |
 | **Action / Event** | What to do, as data, with every parameter | No place to name a concurrency rule. Nothing plain to assert on |
-| **Policy** (level 2) | How a new action meets a running one with the same key | Hand-kept `Job`s and staleness checks |
+| **Policy** (level 2) | How a new action meets a running one with the same key; every policy takes its key | Hand-kept `Job`s and staleness checks |
 | **Process** | IO only | — |
 | **Partial** | One change, applied in order to the state as it is at that moment | Two results that arrive together overwrite each other. Named partials also show up in logs and are testable on their own; `setState { }` is an anonymous one |
 | **Effect** | One-off work: navigation, a message | Kept in state, it runs again on recomposition or when the user comes back |
@@ -165,30 +193,40 @@ owns a part of the root state, its outputs go to the root logic, and the root lo
 
 ### Component ViewModels in a list
 
-`rememberItemStores(keys)` and `ItemScope(stores, key)` give every list item a ViewModel store of its own
-(Decompose's `childItems`). An item's ViewModels live as long as the item is in the list, not as long as it
-is on screen:
+`rememberItemViewModels(keys)` and `ItemScope(items, key)` give every list item a ViewModel store of its own
+(Decompose's `childItems`, with a different lifetime). An item's ViewModels live:
 
-- Scrolling an item away and back keeps its state.
-- A refresh that drops an item clears its ViewModels.
-- While an item is off screen nothing collects its state, so its `whileSubscribed` work pauses. The feed's
-  live like count ticks only for the cards on screen.
+- **while the item is on screen;**
+- **after it has scrolled away, for as long as their work runs** (`Store.isBusy`): a like that is being sent
+  is not cancelled by a scroll, and when it ends the ViewModel is let go;
+- **never past the list:** an item that leaves the list is cleared at once, working or not.
 
-This replaces both earlier choices. Keeping item ViewModels in the screen's store kept every one until the
-screen closed, and a store remembered by the item lost its state on every scroll.
+So the live ViewModels are the items on screen and those with work in flight, however long the list grows.
+The earlier choices each had a flaw: keeping item ViewModels in the screen's store kept every one until the
+screen closed (a long, paged feed grew without limit), a store remembered by the item lost its state and
+cancelled its request on every scroll, and keeping them while in the list grew with the list.
+
+What comes with a ViewModel that is let go: its state is gone. What its work produced belongs in the list's
+data source (a repository, a cache) before it ends, and the item reads it from there when it comes back. That
+data source is the data layer's, not this architecture's.
+
+`ItemViewModels` finds an item's stores by looking into its `ViewModelStore` for `StoreOwner`s, so a component
+ViewModel must be a `StoreOwner`. Its tests are `ItemViewModelsTest`.
 
 ## Work that only matters on screen
 
 `whileSubscribed { }` and `observeWhileSubscribed(flow) { }` (Orbit's `repeatOnSubscription`) run while
 someone collects the store's state, and stop a timeout after the last collector leaves. `collectAsState` is
-lifecycle-aware, so "someone collects" means the screen is visible. Use them for live counts, a location, or
+lifecycle-aware, so "someone collects" means the screen is visible. Only collectors of the state that the screen
+sees count: the store's own (a keeper, `whileIn`, `runOn`) do not, or the work would never stop. Use them for live counts, a location, or
 a socket. Use plain `observe` for what must stay current even off screen: a session, or settings.
 
 ## Surviving process death
 
 `SavedStateHandle.keeper(key, serializer, save, restore)` (Decompose's `StateKeeper`, on Jetpack's handle and
 kotlinx-serialization) keeps a part of the state. The store starts from the saved part and saves it again
-whenever it changes:
+whenever it changes. The first change is written at once, and those that follow within 300 ms are merged into
+one write of the last value, so typing is not encoded on every key:
 
 - **Keep what the user would be upset to lose:** a draft, a selection, a step.
 - **Never keep loaded data:** it is fetched again.
@@ -238,42 +276,25 @@ in the ViewModel can `set`:
 Its benefit is per-field recomposition, and immutable state with mappers gives the same benefit. New code
 should use one immutable state and mappers.
 
-## The state machine library
-
-`dev.klitsie.statemachine` 0.4.1 is one way to write level 3, behind `MachineLogic`, so screens do not
-depend on it directly. Lessons from building with it:
-
-- **Never use its default `SharingStarted.WhileSubscribed(5s)`.** Five seconds after the screen leaves the
-  foreground, it cancels every side effect, such as an upload or a countdown. `machineLogic` runs it
-  eagerly on the host's scope and writes every state into the host's state, which is also what lets it run
-  as a slice.
-- **A `sideEffect` restarts whenever its key changes, and the default key is the whole state.** A phase that
-  updates its own data (an upload's progress, a countdown) has to key its work on what identifies it:
-  `key = { it.draft }` or `key = { Unit }`. Otherwise the work restarts on every update.
-- **Phases are immutable sealed classes.** They fit the immutable-state rule as they are.
-- **The library is young and has one maintainer.** That is why it sits behind our own type, and why level 3
-  also has a plain form. Its compiler plugin (which checks for missing or duplicate states) needs Kotlin 2.4
-  and is not tried yet.
-
 ## What we took from Orbit and Decompose
 
-Neither library is adopted whole. Orbit's intents run with no concurrency rule, which is weaker than
+Neither library is adopted whole, and the state-machine library we tried (dev.klitsie.statemachine) is not used: plain phases (`whileIn`, `runOn`) did the same with less code and no dependency. Orbit's intents run with no concurrency rule, which is weaker than
 `ActionLogic`'s policies. Decompose replaces navigation and the ViewModel together. Their good ideas fit the
 runtime as they are:
 
 | Idea | From | Here |
 |---|---|---|
-| Work bound to a phase, cancelled on leaving it | Orbit `runOn` | `whileIn`, `runOn`: level 3 without a library |
+| Work bound to a phase, cancelled on leaving it | Orbit `runOn` | `whileIn`, `runOn` |
 | Internal and external state | Orbit `transformState` | `mapState` |
 | One effect collector, effects cached while none collects | Orbit `SideEffectMode` | `Store.effects` |
 | Start on first use | Orbit lazy `onCreate` | `Start.Lazily` |
 | Work only while subscribed | Orbit `repeatOnSubscription` | `whileSubscribed`, `observeWhileSubscribed` |
 | Test DSL | orbit-test | `mvi-test`: `storeTest { }` |
-| Store settings: error handler | Orbit `RealSettings` | `StoreSettings`, plus an observer that Orbit does not have |
+| Store settings: error handler | Orbit `RealSettings` | `StoreSettings`: `onError` that fails fast, plus a list of observers that Orbit does not have |
 | A child talks only to its parent | Decompose components | Slice and slot outputs (`onEffect`) |
 | Child lifecycle | Decompose `childContext` | A scope per slice; `detach()` |
-| Children that come and go | Decompose `childSlot` | `Slot` |
-| Per-item lifecycle | Decompose `childItems` | `ItemStores`, `ItemScope` |
+| Children that come and go | Decompose `childSlot` | `Slot`, hosting a `Hosted` |
+| Per-item lifecycle | Decompose `childItems` | `ItemViewModels`, `ItemScope`: on screen or busy, not for as long as the item is in the list |
 | State that survives process death | Essenty `StateKeeper` | `StateKeeper` on `SavedStateHandle` |
 
 Left out on purpose:
@@ -308,7 +329,7 @@ What does compile:
 | Handlers | extensions on `Scope` | plain members | plain members | local functions in a lambda |
 | Hidden mutable state | none: the scope is a parameter | **yes**: a field set on each call | **yes**: a field set on each call | none |
 | Existing extensions (`observe`, `whileIn`, …) | work | rewritten in the base class | work | work |
-| `ActionLogic`, `machineLogic` | work | need a second base class | need a second base class | not applicable |
+| `ActionLogic` | work | needs a second base class | needs a second base class | not applicable |
 | Public surface of the logic | `onIntent` | `onIntent` | **`state`, `reduce`, `emit` become public** | a function |
 | Fits constructor DI and a nested `Factory` | yes | yes | yes | no: it is not a class |
 
@@ -331,7 +352,7 @@ Why the alias stays:
 - The saving is small: one line per class and one word per handler.
 - E and H keep the scope in a field. A logic shared by two hosts by mistake would write into the wrong
   store without any error. With the alias the scope is a parameter and nothing is kept.
-- E, H and G each leave `ActionLogic` and `machineLogic` out, so the code would have two styles for
+- E, H and G each leave `ActionLogic` out, so the code would have two styles for
   handlers.
 - G is not a class, which breaks the assisted factory in [the DI section](guide.md#12-dependency-injection-and-the-size-of-a-viewmodel).
 
@@ -344,7 +365,7 @@ Everything here maps onto arch-kit. The question is how far to take it:
 
 - `Logic` + `StoreScope` replace "the ViewModel implements the plugins". Level 1 is arch-kit as it is today:
   `setState { copy() }` has the same name on purpose.
-- `ActionLogic`/`Policy`, phases, `Slice`, `Slot`, `MachineLogic`, `StateKeeper`, item stores and the test
+- `ActionLogic`/`Policy`, phases, `Slice`, `Slot`, `StateKeeper`, `ItemViewModels` and the test
   DSL are new, and they are additive.
 - `ContentState` is arch-kit's, with a `Throwable` in place of `Failure`.
 - What is not here: the plugin registry, `UiString`, forms, `EventBus`, and DI factories. They stay as they
@@ -358,3 +379,15 @@ Everything here maps onto arch-kit. The question is how far to take it:
   ViewModel's constructor starts the logic early, which is harmless; nothing has needed `Eagerly` yet.
 - In the playground, a sample's saved state is bridged into the composition by hand (`SamplesApp`). In an
   app, the Navigation3 entry's `SavedStateHandle` is passed instead; that wiring is not tried yet.
+- Does the keeper's `SavedStateHandle` survive the app being killed on iOS? The handle and its serialization
+  are multiplatform, but nothing here shows that the platform writes it to disk and gives it back. Try it on a
+  simulator before relying on it; if it does not, a draft that must outlive the process there goes to a
+  storage the app owns (DataStore, settings) behind an interface, and not into the handle.
+- `ItemViewModels` finds an item's stores through `ViewModelStore.keys()` and `get`, which Android marks as
+  library-internal. They compile on every target here; a release of lifecycle that hides them would mean the
+  component ViewModel registers itself instead.
+- The rule "write the flag a guard reads in the synchronous part" is a convention. A lint (a `setState` as the
+  first statement of a `launch` that sits behind a guard on the same field) could check it.
+- The runtime is one module (`mvi/`) that depends on coroutines, lifecycle, savedstate, serialization and
+  Compose. Splitting a core that needs coroutines only from the ViewModel and Compose adapters is decided and
+  not done yet.

@@ -15,7 +15,6 @@ Contents:
 - [The map](#the-map)
 - [Level 1 ⇄ level 2: overlapping work](#level-1--level-2-overlapping-work)
 - [Level 1 or 2 ⇄ level 3: exclusive modes](#level-1-or-2--level-3-exclusive-modes)
-- [Level 3: plain ⇄ the state-machine library](#level-3-plain--the-state-machine-library)
 - [Any level ⇄ level 4: slices](#any-level--level-4-slices)
 - [Slice ⇄ slot](#slice--slot)
 - [Part of a screen ⇄ component ViewModel](#part-of-a-screen--component-viewmodel)
@@ -63,7 +62,6 @@ Contents:
 |---|---|---|---|---|
 | 1 → 2 | A second request can start while the first runs | Only one kind of work is left, and it cannot overlap | `Logic` → `ActionLogic`, plus an action type | State, intents, effects, screen |
 | 1/2 → 3 | Three or more flags exclude each other, or a handler guards on two flags | One or two modes are left | State → sealed phases, plus `toUi()` and `mapState` | Intents, effects, screen |
-| 3 plain ⇄ library | The graph reads better as one declaration (about 8 phases or more), or its compile-time check is wanted | The graph shrinks, or the dependency becomes a problem | The wiring | Phases, transitions, everything outside |
 | → 4 | About 300 lines, or intent groups that never touch each other's state | One slice or two small ones are left, under about 150 lines | Parent → composition root, parts → child logics | Screen, apart from the intent wrapping |
 | slice ⇄ slot | The part exists only sometimes, and its work must stop when it closes | The part is always shown | Child state becomes nullable, `Slice` → `Slot` | The child logic |
 | part ⇄ component VM | The part repeats per item or appears on several screens, and owns its IO | The parent must coordinate it: reset it, or read its state for its rules | The host | The child logic |
@@ -97,15 +95,16 @@ once, as a `Policy`.
    - read the state and build the action, or return `null` when there is nothing to run.
 3. **Move each `launch { }` body into `process(action)`.** Replace every `state.x` inside it with the
    action's parameter.
-4. **Give each action a policy and a key.**
+4. **Give each action a policy, which carries its key.** There is no default key: one shared by a class of
+   actions would make "follow B" cancel "follow A" without a sign.
 
-   | Work | Policy | Key |
-   |---|---|---|
-   | Search as you type, filters | `Latest` | one key: `"search"` |
-   | Submit, pay, pull to refresh | `Drop` | one key |
-   | A toggle per row (follow, like) | `Latest` | per row: `"follow:$id"` |
-   | Writes that build on each other (reorder, append) | `Queue` | one key |
-   | Independent work | `Parallel` | — |
+   | Work | Policy |
+   |---|---|
+   | Search as you type, filters | `Policy.Latest("search")` |
+   | Submit, pay, pull to refresh | `Policy.Ignore("submit")` |
+   | A toggle per row (follow, like) | `Policy.Latest("follow:$id")`, one key per row |
+   | Writes that build on each other (reorder, append) | `Policy.Queue("order")` |
+   | Independent work | `Policy.Parallel` |
 
 5. **Delete what the policies replaced:** the `Job` fields, the overlap guards, and the staleness checks.
 6. **Optionally, name the changes** as a sealed `XPartial : Partial<S>`, so logs and tests show
@@ -133,7 +132,7 @@ override fun Scope.toAction(intent: SearchIntent) = when (intent) {
     }
     // …
 }
-override fun policy(action: SearchAction) = Policy.Latest     // the next keystroke cancels this one
+override fun policy(action: SearchAction) = Policy.Latest("search")   // the next keystroke cancels this one
 override suspend fun Scope.process(action: SearchAction) {
     /* delay, then IO, then reduce */
 }
@@ -142,7 +141,7 @@ override suspend fun Scope.process(action: SearchAction) {
 ### Signals to come back down
 
 Only one kind of work is left, and the user cannot start it twice: a single send whose button is disabled
-while it runs. A `Drop` policy guarding one button is fine at level 2, but at level 1 the same rule is one
+while it runs. An `Ignore` policy guarding one button is fine at level 2, but at level 1 the same rule is one
 honest `if (state.isSending) return`, as in `ReportLogic`.
 
 **Going down:** fold `toAction` and `process` back into `onIntent` with a `launch`. Gather the parameters
@@ -180,8 +179,8 @@ At level 2 the jobs are gone, but the flags and guards stay. That is exactly whe
    `Code`, so one countdown runs across both.
 
 2. **Write the transitions as pure functions** on phases, such as `Editing.submitted()` and
-   `Submitting.answered(result)`, and unit test them. They are shared by both wirings of level 3, and they
-   survive a later switch to the library.
+   `Submitting.answered(result)`, and unit test them. They have no coroutines in them, so they are
+   tested without a store.
 3. **Handle intents per phase:** `when (val phase = state) { is Editing -> when (intent) { … } … }`. A phase
    that does not list an intent ignores it. This replaces every guard.
 4. **Bind the work to phases** in `onStart`:
@@ -200,25 +199,6 @@ At level 2 the jobs are gone, but the flags and guards stay. That is exactly whe
 One or two modes are left. For example, `Editing` and `Submitting` only: that is a single `isSubmitting`
 flag, which is level 1. Fold the phases back into one data class and delete `toUi()` if the screen's state
 is the logic's state again.
-
-## Level 3: plain ⇄ the state-machine library
-
-Level 3 has two wirings over the same phases and transitions. They are compared in
-[reference](reference.md#level-3-with-or-without-the-library). **Start plain.**
-
-| Go to the library when | Come back to plain when |
-|---|---|
-| The graph has about eight phases or more and reads better as one declaration | The graph shrinks |
-| The compile-time check for missing or duplicate phases is worth a dependency | The library breaks an upgrade, or its single maintainer stops |
-
-The move touches only the wiring:
-
-- each `whileIn` becomes a `sideEffect`, keyed on what identifies the work (`key = { Unit }`), because the
-  default key is the whole state;
-- each result becomes an internal event, `send(Answered(result))`, with a handler that calls the same
-  `answered(result)`.
-
-The phases, transitions and `toUi()` do not change, and `SignInBehaviourTest` runs against both wirings.
 
 ## Any level ⇄ level 4: slices
 
@@ -261,7 +241,7 @@ work must stop when it closes. With a slice, a report still being sent would kee
 dismissed.
 
 1. Make the child's state nullable in the parent: `val report: ReportState? = null`. `null` means closed.
-2. Replace the `Slice` with `Slot(get, set, create = { config -> Child(initial, Logic(config)) }, onEffect)`.
+2. Replace the `Slice` with `Slot(get, set, create = { config -> Hosted(initial, Logic(config)) }, onEffect)`.
 3. Open and close it from the parent's intents: `report.open(postId)` and `report.close()`.
 4. Treat the child's "done" output as the cue to close it: `ReportEffect.Sent -> { report.close(); emit(…) }`.
 5. The screen shows the sheet while `state.report != null`.
@@ -278,8 +258,10 @@ several screens, and does its own IO.
 
 1. Keep the logic as it is. Add `class LikeViewModel(…) : ViewModel(), StoreOwner<…> { override val store =
    store(…) }`.
-2. In a list, give each item its own ViewModel store: `val stores = rememberItemStores(keys)`, then
-   `ItemScope(stores, key) { val like = viewModel { LikeViewModel(post, posts) }.store }`.
+2. In a list, give each item its own ViewModel store: `val cards = rememberItemViewModels(keys)`, then
+   `ItemScope(cards, key) { val like = viewModel { LikeViewModel(post, posts) }.store }`. An item's
+   ViewModel lives while it is on screen, and after it has scrolled away for as long as its work runs
+   (`Store.isBusy`); [case 16](cookbook.md#16-one-piece-per-list-item) has the rules.
 3. Remove the part from the parent's state. The parent passes only the initial values.
 
 The trade-off is that the parent can no longer reset the part or read its state. That is why the feed passes
@@ -322,8 +304,8 @@ longer decodes after an app update is dropped, so changing the saved type is saf
 
 ## The worked example: sign-in at every level
 
-`samples/signin/` is one screen written four ways: the same intents, the same `SignInUi`, and the same
-screen. `SignInBehaviourTest` runs seven behaviours against all four implementations.
+`samples/signin/` is one screen written three ways: the same intents, the same `SignInUi`, and the same
+screen. `SignInBehaviourTest` runs seven behaviours against all three implementations.
 
 - **Level 1** (`SignInLevel1Logic`) works, and shows the cost:
   - five flags, mostly in impossible combinations;
@@ -332,8 +314,8 @@ screen. `SignInBehaviourTest` runs seven behaviours against all four implementat
 - **Level 2** (`SignInLevel2Logic`) keeps the same state and moves the concurrency into policies. The jobs
   are gone, but the flags and guards stay. That is the level 3 signal.
 - **Level 3** has the phases `Editing`, `Submitting`, `Locked`, `EnteringCode`, `Verifying` and `SignedIn`.
-  It has no flags and no guards, and the countdowns are work of their phases. It is written twice over the
-  same transitions: plain (`SignInPhasesLogic`) and with the library (`signInLevel3Logic`).
+  It has no flags and no guards, and the countdowns are work of their phases (`whileIn` and `runOn`),
+  over transitions that are pure functions.
 
 Each level is a folder of its own with the same four kinds of file, and nothing is shared between levels
 except the contract and the screen:
@@ -343,8 +325,8 @@ signin/
   SignInContract.kt  SignInRules.kt  SignInScreen.kt     shared: intents, effects, SignInUi, the screen
   level1/  SignInLevel1State.kt  SignInLevel1Mapper.kt  SignInLevel1Logic.kt  SignInLevel1ViewModel.kt
   level2/  SignInLevel2Contract.kt  SignInLevel2Logic.kt  SignInLevel2ViewModel.kt
-  level3/  SignInPhase.kt  SignInEvent.kt  SignInLevel3Transitions.kt  SignInLevel3Mapper.kt
-           SignInLevel3Logic.kt (library)  SignInPhasesLogic.kt (plain)  …ViewModel.kt for each
+  level3/  SignInPhase.kt  SignInLevel3Transitions.kt  SignInLevel3Mapper.kt
+           SignInLevel3Logic.kt  SignInLevel3ViewModel.kt
 ```
 
 Each implementation maps its state onto `SignInUi` in its ViewModel with `mapState`. The screen cannot tell

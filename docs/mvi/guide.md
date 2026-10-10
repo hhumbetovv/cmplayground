@@ -61,7 +61,7 @@ The words you will meet later, all of them optional at the start:
 |---|---|---|
 | Partial | One named change of the state, with its reduction beside it | Level 2, or whenever logs need names |
 | Action | What to do about an intent, with every parameter gathered | Level 2 |
-| Policy | What happens when an action starts while the same one runs: Parallel, Latest, Drop, Queue | Level 2 |
+| Policy | What happens when an action starts while one with the same key runs: Parallel, Latest, Ignore, Queue. Each takes its key: `Policy.Latest("search")` | Level 2 |
 | Phase | One of the exclusive modes a screen is in, as a sealed type | Level 3 |
 | Slice | A part of a big screen with its own logic | Level 4 |
 | Slot | A part that exists only while open: a dialog, a sheet | When a dialog has logic of its own |
@@ -289,14 +289,22 @@ Each rule has a reason. A rule broken on purpose needs a comment that gives a re
 
 ### Logic
 
-10. **Read the state before you suspend.** Copy what the work needs into locals, or into an action at
-    level 2, before `launch`. After a suspension, `state` may already be different.
-11. **IO goes through `safeCall { }`,** and each failure ends as a state or an effect. The store reports
-    uncaught failures to `onError` and keeps running, but a failure the user never sees is a bug.
+10. **Read the state before you suspend, and write what a guard reads before you launch.** Copy what the
+    work needs into locals, or into an action at level 2, before `launch`: after a suspension, `state` may
+    already be different. Set the flag that a second tap's guard reads (`isSending`) in the intent's
+    synchronous part, not inside the `launch`: `postIntent` returns once that part is done, so the next
+    intent sees it however the work is dispatched ([reference](reference.md#threading-and-ordering)).
+11. **IO goes through `safeCall { }`,** and each failure ends as a state or an effect. A failure that
+    escapes goes to `onError`, which throws unless the app set its own: in development and in tests a bug
+    crashes, and an app reports it and keeps running. A failure the user never sees is still a bug.
 12. **Dependencies come through the constructor.** A logic must not use Android, Compose, `viewModelScope`
     or a service locator.
 13. **Do not keep `Job`s.** A `Job?` field is the signal to move to level 2, where a policy does that work.
     Other private fields in a logic are allowed only in the three cases of [section 11](#11-internal-state).
+
+Intents are posted from the main thread. The store keeps what runs in plain maps, and the synchronous part
+of an intent runs on the caller's thread, so a second thread would race it. A ViewModel's scope is
+`Dispatchers.Main.immediate`, which is what the samples and the tests assume.
 
 ### ViewModel
 
@@ -463,7 +471,7 @@ For every pull request that adds or changes a screen:
 | A navigation flag in the state (`val navigateHome: Boolean`) | It fires again after a rotation, or never resets | An effect |
 | An error message as an effect when the screen must keep showing it | It is gone after a rotation | State |
 | `launch { val q = state.query; … }` | `state` is read after the intent, maybe after other changes | `val q = state.query` before `launch`, or an action |
-| A `Job?` field to cancel the previous search | Hand-made concurrency that every new path must remember | Level 2, `Policy.Latest` |
+| A `Job?` field to cancel the previous search | Hand-made concurrency that every new path must remember | Level 2, `Policy.Latest("search")` |
 | `isLoading`, `isVerifying`, `isLocked`, `step` side by side | Impossible combinations can be written, and every rule touches every guard | Level 3 phases |
 | A function on the ViewModel (`fun refresh()`) | The behaviour is split between the ViewModel and the logic, and untested | An intent |
 | One slice calling another (`tags.postIntent(…)` from the poll slice) | A hidden coupling: the split exists in name only | The parent routes |
@@ -484,7 +492,7 @@ source of most hidden-state bugs.
 | **A fact the screen draws** | the query, the list, `isSending` | The state |
 | **A fact only the logic needs, and that survives rotation** | a phase's attempt number, a request's page cursor, the id of the draft being edited | **The state**, hidden from the screen with `mapState` |
 | **A fact that is derived** | `canSend`, `isEmpty` | A property of the state |
-| **Bookkeeping about work, not about data** | which actions run, a machine's current node | The runtime (`ActionLogic`, `MachineLogic`, `whileIn`). You never write it |
+| **Bookkeeping about work, not about data** | which actions run, which phase's work is running | The runtime (`ActionLogic`, `whileIn`). You never write it |
 | **A resource, not a value** | an open socket, a `Job`, a cache of decoded images | The data layer (repository, use case), not the logic |
 
 The rule behind the table: **if the logic's next decision depends on it, it is state.** A private field that
@@ -552,7 +560,7 @@ When a behaviour test must pass for several implementations of one screen, it go
 
 1. **A constant or a dependency:** `private val posts: PostRepository`, `private val debounce = 300L`. It
    never changes.
-2. **A host-owned helper** that the runtime already requires: a `Slice`, a `Slot` or a `MachineLogic` field,
+2. **A host-owned helper** that the runtime already requires: a `Slice` or a `Slot` field,
    attached in `onStart`. A logic instance belongs to one host, so this bookkeeping lives with it.
 3. **A cache that is only an optimisation,** where losing it changes speed and not behaviour (a compiled
    `Regex`, a formatter). If losing it changes what the user sees, it is state.
@@ -578,10 +586,10 @@ about a field of the state, and cannot see a `private var`.
 
 | I need to… | Do this |
 |---|---|
-| Remember what the last request was, to ignore a stale answer | Level 2, `Policy.Latest`. No field |
+| Remember what the last request was, to ignore a stale answer | Level 2, `Policy.Latest(key)`. No field |
 | Know the next page | `cursor` in the state, `mapState` away |
 | Count retries | `attempt` in the state or in the action |
-| Not run the same work twice at once | A `Policy` (`Drop` or `Latest`) |
+| Not run the same work twice at once | A `Policy` (`Ignore` or `Latest`) |
 | Share a loaded list between screens | A repository that exposes a `Flow`; `observe` it in `onStart` |
 | Cache decoded or parsed data | The repository or a use case |
 | Run work only while the screen is on | `observeWhileSubscribed` / `whileSubscribed` |

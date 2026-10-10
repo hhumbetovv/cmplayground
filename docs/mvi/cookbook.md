@@ -93,7 +93,7 @@ fun aFailureCanBeRetried() = runTest {
 
 **Situation.** Pull to refresh, while the list stays on screen.
 
-**Rule.** `reload()` keeps the previous data in `Loading(previous)`. A refresh is `Policy.Drop`: a second pull
+**Rule.** `reload()` keeps the previous data in `Loading(previous)`. A refresh is `Policy.Ignore("refresh")`: a second pull
 while one runs is ignored. See `FeedLogic`.
 
 ```kotlin
@@ -108,7 +108,7 @@ class FeedLogic(private val repository: PostRepository) :
         // …
     }
 
-    override fun policy(action: Unit) = Policy.Drop
+    override fun policy(action: Unit) = Policy.Ignore("refresh")
 
     override suspend fun Scope.process(action: Unit) {
         setState { copy(posts = posts.reload()) }          // the old list stays on screen
@@ -133,7 +133,7 @@ awaited.
 **Situation.** A list that loads the next page when the user scrolls near the end.
 
 **Rule.** The items and the cursor are state. The cursor is internal, so it can be hidden with `mapState`
-([guide 11.1](guide.md#11-internal-state)). A refresh and a next page share one key under `Policy.Latest`, so
+([guide 11.1](guide.md#11-internal-state)). A refresh and a next page share one key under `Policy.Latest("items")`, so
 a refresh cancels a page in flight and the reverse. The "loading" state is set in `toAction`, before anything
 launches, so two quick `ReachedEnd` intents cannot both pass the check.
 
@@ -178,9 +178,7 @@ class ItemsLogic(private val items: ItemRepository) :
         }
     }
 
-    override fun policy(action: ItemsAction) = Policy.Latest
-
-    override fun key(action: ItemsAction): Any = "items"      // a refresh and a page cancel each other
+    override fun policy(action: ItemsAction) = Policy.Latest("items")   // a refresh and a page cancel each other
 
     override suspend fun Scope.process(action: ItemsAction) {
         if (action == ItemsAction.Refresh) setState { copy(paging = paging.reload()) }   // the start's dispatch
@@ -225,7 +223,7 @@ fun scrollingFastLoadsAPageOnce() = runTest {
 
 **Situation.** A query changes on every keystroke, and answers return in any order.
 
-**Rule.** `Policy.Latest` with a `delay` at the start of `process`. That is the debounce, and the
+**Rule.** `Policy.Latest("search")` with a `delay` at the start of `process`. That is the debounce, and the
 cancellation of old answers, with no `Job` field. The typed text is reduced at once in `toAction` (the field
 must not lag), and the request is the action. See `SearchLogic`.
 
@@ -239,7 +237,10 @@ override fun Scope.toAction(intent: SearchIntent): SearchAction? = when (intent)
     // …
 }
 
-override fun policy(action: SearchAction) = Policy.Latest
+override fun policy(action: SearchAction) = when (action) {
+    is SearchAction.Search -> Policy.Latest("search")
+    is SearchAction.SetFollowing -> Policy.Latest("follow:${action.user.id}")   // one per user
+}
 
 override suspend fun Scope.process(action: SearchAction) {
     if (action.query.isEmpty()) return reduce(SearchPartial.Cleared)
@@ -275,8 +276,9 @@ fun onlyTheLastQuerySurvivesTheDebounce() = runTest {
 1. Gather the **wish** when the user taps (`liked = !state.isLiked`), and send "set X", never "toggle".
 2. Change the state at once, in `toAction`.
 3. Keep `before` in the action, and put it back on failure, with an effect that says so.
-4. Use `Policy.Latest` with a key per thing (`"follow:$id"`), so rapid taps send the last wish only, and
-   different things do not cancel each other.
+4. Use `Policy.Latest` with a key per thing (`Policy.Latest("follow:$id")`), so rapid taps send the last wish
+   only, and different things do not cancel each other. A policy always takes its key: a shared default would
+   make "follow B" cancel "follow A" with no sign that anything is wrong.
 
 Do not roll back by recomputing (`!liked`): a second tap may have happened in between. Roll back to the saved
 value. See `LikeLogic`.
@@ -295,7 +297,7 @@ class LikeLogic(private val postId: String, private val posts: PostRepository) :
         return SetLiked(liked = liked, before = before)
     }
 
-    override fun policy(action: SetLiked) = Policy.Latest
+    override fun policy(action: SetLiked) = Policy.Latest("like")
 
     override suspend fun Scope.process(action: SetLiked) {
         safeCall { posts.setLiked(postId, action.liked) }
@@ -688,7 +690,7 @@ class FeedLogic(
     private val report: Slot<FeedState, FeedEffect, String, ReportState, ReportIntent, ReportEffect> = Slot(
         get = FeedState::report,                          // null while closed
         set = { copy(report = it) },
-        create = { postId -> Child(ReportState(), reportLogic.create(postId)) },
+        create = { postId -> Hosted(ReportState(), reportLogic.create(postId)) },
         onEffect = { effect ->                            // the child's outputs
             when (effect) {
                 ReportEffect.Sent -> {
@@ -1056,7 +1058,7 @@ fun theCountIsLiveOnlyWhileTheCardIsOnScreen() = runTest {
 | The user can read it and it stays until they act | **State** (`ContentState.Error`, a typed `failure`) | The feed did not load |
 | The user should be told once, and the screen is fine | **Effect** (a message) | A follow failed and was rolled back |
 | The user cannot do anything about it, and the logic is correct | `onError` (log, report) | A bug in an observer |
-| A coding mistake (`check`, `require`) | Crash in debug, `onError` in release | The slot was not attached |
+| A coding mistake (`check`, `require`) | Crash: `onError` throws unless the app set its own | The slot was not attached |
 
 Rules:
 
@@ -1109,10 +1111,22 @@ val text = when ((state.posts as? ContentState.Error)?.error) {
 **Situation.** A like button on every card, a download button on every row.
 
 **Rule.** When the piece does its own IO, it is a **component ViewModel** hosted with `ItemScope`, keyed by
-the item's id. It lives while the item is in the list and is cleared when it is dropped. The list passes only
-the **initial values**, and the component then owns its state. A refresh of the list does not reset it, and
-that is the trade-off: if the list must be the source of truth, the logic stays in the list screen and the
-item is a stateless row with an intent carrying the id.
+the item's id. Its lifetime is the one `ItemViewModels` gives it:
+
+- **On screen:** it lives. Scrolled away, it lives **only while its work runs**: a request that is being sent
+  is not cancelled by a scroll. When the work ends it is let go, and its state with it.
+- **Work** is what `Store.isBusy` says: launched work, an action, the work of a phase. A binder (`observe`,
+  `whileSubscribed`) is not work, since it never ends.
+- An item that leaves the list is cleared at once, working or not.
+
+So the number of live ViewModels is the items on screen plus those with a request in flight, however long the
+list grows. The state of a ViewModel that was let go is gone: what a piece of work produced belongs in the
+list's data source (a repository or a cache) before it ends, and the item reads it from there when it comes
+back. Keeping that source current is the data layer's job, not this architecture's.
+
+The list passes only the **initial values**, and the component then owns its state while it lives. A refresh
+of the list does not reset it. If the list must be the source of truth, the logic stays in the list screen
+and the item is a stateless row with an intent carrying the id.
 
 | The row | Use |
 |---|---|
@@ -1127,11 +1141,11 @@ class LikeViewModel(post: Post, posts: PostRepository) :
     override val store = store(LikeState(post.isLiked, post.likes), LikeLogic(post.id, posts))
 }
 
-// The list keeps one ViewModel store per item, and drops it when the item leaves the list.
-val stores = rememberItemStores(keys = posts.map { it.id })
+// The list keeps the item ViewModels of the posts it has, and lets an item go when it is off screen and idle.
+val cards = rememberItemViewModels(keys = posts.map { it.id })
 LazyColumn {
     items(posts, key = { it.id }) { post ->
-        ItemScope(stores, key = post.id) {
+        ItemScope(cards, key = post.id) {
             LikeButton(post)                              // inside, viewModel { … } is this card's own
         }
     }
@@ -1147,15 +1161,18 @@ private fun LikeButton(post: Post) {
 }
 ```
 
-**Test.** `LikeLogic` alone, as its own store (case 5). The list's test does not know about it.
+**Test.** `LikeLogic` alone, as its own store (case 5). The lifetime rules are `ItemViewModelsTest`: an idle
+item is let go when it leaves the screen, a busy one lives until its work ends, one that comes back keeps its
+ViewModel, one that leaves the list is cleared at once. The list's test does not know about any of it.
 
 ## 17. Draft that survives the process
 
 **Situation.** The user typed a long text, and the app is killed in the background.
 
 **Rule.** A keeper saves a **part** (what the user typed or chose), and merges it back into the initial
-state. Never loaded data, never a phase. See `createpost/`, and
-[guide 11.4](guide.md#114-internal-state-and-process-death).
+state. Never loaded data, never a phase. The keeper writes the first change at once and merges those that
+follow within 300 ms into one write of the last value, so typing is not encoded on every key. See
+`createpost/`, and [guide 11.4](guide.md#114-internal-state-and-process-death).
 
 ```kotlin
 @Serializable
