@@ -81,19 +81,21 @@ class StoreTest<S, I, E> internal constructor(
         settings = StoreSettings(
             start = Start.Manually,
             onError = { error -> items.addLast(Item.Error(error)) },
-            observer = object : StoreObserver {
-                override fun onState(
-                    partial: Partial<*>,
-                    previous: Any?,
-                    state: Any?,
-                ) {
-                    items.addLast(Item.State(state))
-                }
+            observers = listOf(
+                object : StoreObserver {
+                    override fun onState(
+                        partial: Partial<*>,
+                        previous: Any?,
+                        state: Any?,
+                    ) {
+                        items.addLast(Item.State(state))
+                    }
 
-                override fun onEffect(effect: Any?) {
-                    items.addLast(Item.Effect(effect))
-                }
-            },
+                    override fun onEffect(effect: Any?) {
+                        items.addLast(Item.Effect(effect))
+                    }
+                },
+            ),
         ),
         keeper = keeper,
     )

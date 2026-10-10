@@ -38,7 +38,12 @@ interface StoreObserver {
  */
 class StoreSettings(
     val start: Start = Start.Lazily,
-    /** Gets every failure: in an intent, and in work the logic launched. The store keeps working. */
-    val onError: (Throwable) -> Unit = Throwable::printStackTrace,
-    val observer: StoreObserver? = null,
+    /**
+     * Gets every failure: in an intent, and in work the logic launched. The default fails fast — it
+     * throws, so a bug crashes in development and in tests. An app sets one that reports instead, and the
+     * store then keeps working.
+     */
+    val onError: (Throwable) -> Unit = { error -> throw error },
+    /** Every observer sees everything, in the order of the list. One that fails is reported to [onError]. */
+    val observers: List<StoreObserver> = emptyList(),
 )

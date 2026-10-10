@@ -112,8 +112,7 @@ class StoreHost<S, I, E>(
         )
 
         override fun reduce(partial: Partial<S>) {
-            val observer = settings.observer
-            if (observer == null) {
+            if (settings.observers.isEmpty()) {
                 mutableState.update(partial::reduce)
                 return
             }
@@ -124,11 +123,11 @@ class StoreHost<S, I, E>(
                 next = partial.reduce(state)
                 next
             }
-            if (previous != next) observer.onState(partial, previous, next)
+            if (previous != next) notify { onState(partial, previous, next) }
         }
 
         override fun emit(effect: E) {
-            settings.observer?.onEffect(effect)
+            notify { onEffect(effect) }
             effectChannel.trySend(effect)
         }
     }
@@ -136,6 +135,19 @@ class StoreHost<S, I, E>(
     init {
         keeper?.let { keeper -> storeScope.coroutineScope.launch { keeper.save(mutableState) } }
         if (settings.start == Start.Eagerly) start()
+    }
+
+    /** Tells every observer; one that fails is reported, and the others still hear. */
+    private fun notify(event: StoreObserver.() -> Unit) {
+        settings.observers.forEach { observer ->
+            try {
+                observer.event()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                settings.onError(error)
+            }
+        }
     }
 
     /** Runs the logic's `onStart`, once. Needed only with [Start.Manually]; harmless otherwise. */
@@ -153,7 +165,7 @@ class StoreHost<S, I, E>(
 
     override fun postIntent(intent: I) {
         startIfLazy()
-        settings.observer?.onIntent(intent)
+        notify { onIntent(intent) }
         try {
             logic.handle(storeScope, intent)
         } catch (cancellation: CancellationException) {

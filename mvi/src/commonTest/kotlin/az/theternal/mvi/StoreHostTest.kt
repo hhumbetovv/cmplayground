@@ -120,7 +120,7 @@ class StoreHostTest {
                 log += "effect $effect"
             }
         }
-        val store = StoreHost(0, backgroundScope, Echo(), StoreSettings(observer = observer))
+        val store = StoreHost(0, backgroundScope, Echo(), StoreSettings(observers = listOf(observer)))
         store.postIntent(2)
         store.postIntent(0)
         assertEquals(
@@ -208,5 +208,30 @@ class StoreHostTest {
         val stopped = logic.ticks
         advanceTimeBy(20_000)
         assertEquals(stopped, logic.ticks)
+    }
+
+    @Test
+    fun everyObserverHearsInOrderAndOneThatFailsDoesNotSilenceTheOthers() = runTest {
+        val log = mutableListOf<String>()
+        val errors = mutableListOf<String?>()
+        fun observer(name: String, fails: Boolean = false) = object : StoreObserver {
+            override fun onIntent(intent: Any?) {
+                log += "$name $intent"
+                if (fails) error("$name failed")
+            }
+        }
+        val settings = StoreSettings(
+            onError = { errors += it.message },
+            observers = listOf(observer("log"), observer("analytics", fails = true), observer("debug")),
+        )
+        StoreHost(0, backgroundScope, Echo(), settings).postIntent(1)
+        assertEquals(listOf("log 1", "analytics 1", "debug 1"), log)
+        assertEquals<List<String?>>(listOf("analytics failed"), errors)
+    }
+
+    @Test
+    fun byDefaultAFailureFailsFast() = runTest {
+        val store = StoreHost(0, backgroundScope, Failing())
+        assertFailsWith<IllegalStateException> { store.postIntent("throw") }
     }
 }
