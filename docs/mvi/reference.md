@@ -283,6 +283,61 @@ Left out on purpose:
   whose back stack is already state.
 - **Orbit's container and intent model.** `Logic` with policies already covers them.
 
+## Considered and not adopted: removing the `Scope` alias
+
+Every logic repeats its scope type: `private typealias Scope = StoreScope<State, Effect>` once, and `Scope.` on
+each handler. We tried to remove that. Each variant below was compiled with Kotlin 2.4.10, and the ones that
+compile were run against the report screen's three tests. **We kept the alias.** This section records why, so
+the question is not opened again from nothing.
+
+First, the idea that looks natural does not exist in the language:
+
+- **An alias inherited from `Logic<S, I, E>`.** A nested `typealias` cannot see the outer type parameters
+  (`typealias Scope = StoreScope<S, E>` inside a generic class: `Unresolved reference 'S'`), and an alias
+  does not bind to a subclass's type arguments. There is nothing to inherit.
+- **A context parameter on the class** (`context(scope: StoreScope<S, E>) class …`) is rejected:
+  `Context parameters on classes are unsupported`. A context parameter on each function repeats the type
+  just as `Scope.` does, and is longer by a line.
+
+What does compile:
+
+| | Alias (kept) | E: scope in a base class | H: base class is the `StoreScope` | G: a DSL |
+|---|---|---|---|---|
+| Alias line per class | 1 | none | none | none |
+| `Scope.` on each handler | yes | none | none | none |
+| Handlers | extensions on `Scope` | plain members | plain members | local functions in a lambda |
+| Hidden mutable state | none: the scope is a parameter | **yes**: a field set on each call | **yes**: a field set on each call | none |
+| Existing extensions (`observe`, `whileIn`, …) | work | rewritten in the base class | work | work |
+| `ActionLogic`, `machineLogic` | work | need a second base class | need a second base class | not applicable |
+| Public surface of the logic | `onIntent` | `onIntent` | **`state`, `reduce`, `emit` become public** | a function |
+| Fits constructor DI and a nested `Factory` | yes | yes | yes | no: it is not a class |
+
+Sketches, with the report screen as the example (E and H differ only in the base class):
+
+```kotlin
+// E / H: handlers are plain members
+class ReportLogic(…) : ScopedLogic<ReportState, ReportIntent, ReportEffect>() {
+    override fun onIntent(intent: ReportIntent) { … }
+    private fun send() { … setState { … } … launch { … } }
+}
+
+// G: the scope is the lambda's receiver
+fun reportLogic(postId: String, posts: PostRepository) =
+    logic<ReportState, ReportIntent, ReportEffect> { intent -> … }
+```
+
+Why the alias stays:
+
+- The saving is small: one line per class and one word per handler.
+- E and H keep the scope in a field. A logic shared by two hosts by mistake would write into the wrong
+  store without any error. With the alias the scope is a parameter and nothing is kept.
+- E, H and G each leave `ActionLogic` and `machineLogic` out, so the code would have two styles for
+  handlers.
+- G is not a class, which breaks the assisted factory in [the DI section](guide.md#12-dependency-injection-and-the-size-of-a-viewmodel).
+
+If the repetition ever hurts enough, **H** is the one to take: a separate, optional `ScopedLogic` for plain
+`Logic`, with the public `StoreScope` members written down as its cost. Nothing else would change.
+
 ## Back to arch-kit
 
 Everything here maps onto arch-kit. The question is how far to take it:
