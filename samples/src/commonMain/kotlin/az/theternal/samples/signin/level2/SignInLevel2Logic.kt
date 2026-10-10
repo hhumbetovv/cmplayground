@@ -12,47 +12,14 @@ import az.theternal.samples.signin.SignInIntent
 import az.theternal.samples.signin.SignInMessages
 import az.theternal.samples.signin.SignInRules
 import az.theternal.samples.signin.SignInStep
-import az.theternal.samples.signin.level1.SignInLevel1State
 import kotlinx.coroutines.delay
-
-/**
- * Level 2: the same state as level 1, the concurrency moved into policies. The hand-kept `Job`s are gone —
- * a countdown is an action under [Policy.Latest], so starting one cancels the one before and a countdown
- * to 0 stops it — and a double tap on submit is [Policy.Drop]ped by name.
- *
- * What level 2 does not fix: the flags. `isSubmitting`, `isVerifying`, `lockedSeconds` and `step` still
- * have to be read together in every guard. That is the level 3 signal.
- */
-typealias SignInLevel2State = SignInLevel1State
-
-sealed interface SignInLevel2Action {
-    data class SignIn(
-        val email: String,
-        val password: String,
-    ) : SignInLevel2Action
-
-    data class Verify(
-        val challengeId: String,
-        val code: String,
-    ) : SignInLevel2Action
-
-    data class Resend(
-        val challengeId: String,
-    ) : SignInLevel2Action
-
-    /** Counts [seconds] down to 0; one per [kind] runs, and a new one replaces it — 0 just stops it. */
-    data class Countdown(
-        val kind: Kind,
-        val seconds: Int,
-    ) : SignInLevel2Action {
-        enum class Kind { Lock, Resend }
-    }
-}
 
 class SignInLevel2Logic(
     private val auth: AuthRepository,
 ) : ActionLogic<SignInLevel2State, SignInIntent, SignInLevel2Action, SignInEffect>() {
-    override fun StoreScope<SignInLevel2State, SignInEffect>.toAction(intent: SignInIntent): SignInLevel2Action? {
+    private typealias Scope = StoreScope<SignInLevel2State, SignInEffect>
+
+    override fun Scope.toAction(intent: SignInIntent): SignInLevel2Action? {
         return when (intent) {
             is SignInIntent.EditEmail -> {
                 if (state.canEditCredentials) setState { copy(email = intent.value, error = null) }
@@ -82,7 +49,7 @@ class SignInLevel2Logic(
     }
 
     /** The parameter-gathering step: validation, and the values the request will be sent with. */
-    private fun StoreScope<SignInLevel2State, SignInEffect>.signIn(): SignInLevel2Action? {
+    private fun Scope.signIn(): SignInLevel2Action? {
         if (!state.canEditCredentials) return null
         val email = state.email.trim()
         if (email.isEmpty() || state.password.isEmpty()) {
@@ -93,7 +60,7 @@ class SignInLevel2Logic(
         return SignInLevel2Action.SignIn(email = email, password = state.password)
     }
 
-    private fun StoreScope<SignInLevel2State, SignInEffect>.verify(): SignInLevel2Action? {
+    private fun Scope.verify(): SignInLevel2Action? {
         val challengeId = state.challengeId
         if (!state.canEditCode || challengeId == null) return null
         if (state.code.length != SignInRules.CODE_LENGTH) {
@@ -115,7 +82,7 @@ class SignInLevel2Logic(
         return if (action is SignInLevel2Action.Countdown) action.kind else action::class
     }
 
-    override suspend fun StoreScope<SignInLevel2State, SignInEffect>.process(action: SignInLevel2Action) {
+    override suspend fun Scope.process(action: SignInLevel2Action) {
         when (action) {
             is SignInLevel2Action.SignIn -> {
                 val result = safeCall { auth.signIn(action.email, action.password) }
@@ -141,7 +108,7 @@ class SignInLevel2Logic(
         }
     }
 
-    private fun StoreScope<SignInLevel2State, SignInEffect>.onSignInAnswer(answer: SignInResult) {
+    private fun Scope.onSignInAnswer(answer: SignInResult) {
         when (answer) {
             SignInResult.Success -> signedIn()
             is SignInResult.CodeRequired -> {
@@ -174,7 +141,7 @@ class SignInLevel2Logic(
         }
     }
 
-    private suspend fun StoreScope<SignInLevel2State, SignInEffect>.countDown(action: SignInLevel2Action.Countdown) {
+    private suspend fun Scope.countDown(action: SignInLevel2Action.Countdown) {
         fun SignInLevel2State.withSeconds(seconds: Int) = when (action.kind) {
             SignInLevel2Action.Countdown.Kind.Lock -> copy(lockedSeconds = seconds)
             SignInLevel2Action.Countdown.Kind.Resend -> copy(resendSeconds = seconds)
@@ -189,7 +156,7 @@ class SignInLevel2Logic(
         }
     }
 
-    private fun StoreScope<SignInLevel2State, SignInEffect>.signedIn() {
+    private fun Scope.signedIn() {
         dispatch(SignInLevel2Action.Countdown(SignInLevel2Action.Countdown.Kind.Resend, seconds = 0))
         setState { copy(isSignedIn = true) }
         emit(SignInEffect.SignedIn)

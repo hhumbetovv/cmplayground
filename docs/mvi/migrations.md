@@ -332,5 +332,17 @@ screen. `SignInBehaviourTest` runs seven behaviours against all four implementat
   It has no flags and no guards, and the countdowns are work of their phases. It is written twice over the
   same transitions: plain (`SignInPhasesLogic`) and with the library (`signInLevel3Logic`).
 
-Each implementation maps its state onto `SignInUi` in the ViewModel with `mapState`. The screen cannot tell
+Each level is a folder of its own with the same four kinds of file, and nothing is shared between levels
+except the contract and the screen:
+
+```
+signin/
+  SignInContract.kt  SignInRules.kt  SignInScreen.kt     shared: intents, effects, SignInUi, the screen
+  level1/  SignInLevel1State.kt  SignInLevel1Mapper.kt  SignInLevel1Logic.kt  SignInLevel1ViewModel.kt
+  level2/  SignInLevel2Contract.kt  SignInLevel2Logic.kt  SignInLevel2ViewModel.kt
+  level3/  SignInPhase.kt  SignInEvent.kt  SignInLevel3Transitions.kt  SignInLevel3Mapper.kt
+           SignInLevel3Logic.kt (library)  SignInPhasesLogic.kt (plain)  …ViewModel.kt for each
+```
+
+Each implementation maps its state onto `SignInUi` in its ViewModel with `mapState`. The screen cannot tell
 which one runs, and that is the property every migration on this page preserves.

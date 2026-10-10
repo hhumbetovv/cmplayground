@@ -1,4 +1,4 @@
-package az.theternal.samples.feed
+package az.theternal.samples.feed.like
 
 import az.theternal.mvi.DEFAULT_STOP_TIMEOUT_MILLIS
 import az.theternal.mvi.Logic

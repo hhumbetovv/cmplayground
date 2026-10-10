@@ -36,6 +36,9 @@ import az.theternal.mvi.rememberItemStores
 import az.theternal.mvi.select
 import az.theternal.samples.data.Post
 import az.theternal.samples.data.PostRepository
+import az.theternal.samples.feed.like.LikeEffect
+import az.theternal.samples.feed.like.LikeIntent
+import az.theternal.samples.feed.like.LikeViewModel
 import az.theternal.samples.report.ReportForm
 import az.theternal.samples.report.ReportState
 import az.theternal.samples.ui.ErrorText

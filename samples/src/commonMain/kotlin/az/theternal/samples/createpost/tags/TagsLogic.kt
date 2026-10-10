@@ -10,34 +10,6 @@ import az.theternal.mvi.toContentState
 import az.theternal.samples.data.PostRepository
 import kotlinx.coroutines.delay
 
-data class TagsState(
-    val query: String = "",
-    val suggestions: ContentState<List<String>> = ContentState.Idle,
-    val selected: List<String> = emptyList(),
-) {
-    companion object {
-        const val MAX_TAGS = 3
-    }
-}
-
-sealed interface TagsIntent {
-    data class EditQuery(
-        val text: String,
-    ) : TagsIntent
-
-    data class Add(
-        val tag: String,
-    ) : TagsIntent
-
-    data class Remove(
-        val tag: String,
-    ) : TagsIntent
-}
-
-sealed interface TagsEffect {
-    data object LimitReached : TagsEffect
-}
-
 /**
  * A level 2 slice: suggestions are searched as the user types, under [Policy.Latest]. It knows nothing of
  * posts — it would host as well in a profile's interests screen, or as a tag-picker component of its own.
@@ -45,7 +17,9 @@ sealed interface TagsEffect {
 class TagsLogic(
     private val posts: PostRepository,
 ) : ActionLogic<TagsState, TagsIntent, String, TagsEffect>() {
-    override fun StoreScope<TagsState, TagsEffect>.toAction(intent: TagsIntent): String? {
+    private typealias Scope = StoreScope<TagsState, TagsEffect>
+
+    override fun Scope.toAction(intent: TagsIntent): String? {
         return when (intent) {
             is TagsIntent.EditQuery -> {
                 setState { copy(query = intent.text) }
@@ -69,7 +43,7 @@ class TagsLogic(
 
     override fun policy(action: String) = Policy.Latest
 
-    override suspend fun StoreScope<TagsState, TagsEffect>.process(action: String) {
+    override suspend fun Scope.process(action: String) {
         if (action.isEmpty()) {
             setState { copy(suggestions = ContentState.Idle) }
             return

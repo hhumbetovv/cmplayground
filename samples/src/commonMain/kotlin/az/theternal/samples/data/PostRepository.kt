@@ -2,30 +2,6 @@ package az.theternal.samples.data
 
 import kotlinx.coroutines.flow.Flow
 
-interface AuthRepository {
-    suspend fun signIn(
-        email: String,
-        password: String,
-    ): SignInResult
-
-    suspend fun verifyCode(
-        challengeId: String,
-        code: String,
-    ): Boolean
-
-    suspend fun resendCode(challengeId: String)
-}
-
-interface UserRepository {
-    suspend fun search(query: String): List<User>
-
-    /** Sets, not toggles: sending the latest wish again is harmless, which is what lets a tap cancel the last. */
-    suspend fun setFollowing(
-        userId: String,
-        following: Boolean,
-    )
-}
-
 interface PostRepository {
     suspend fun feed(): List<Post>
 

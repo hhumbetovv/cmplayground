@@ -28,7 +28,9 @@ import kotlinx.coroutines.delay
 class SignInPhasesLogic(
     private val auth: AuthRepository,
 ) : Logic<SignInPhase, SignInIntent, SignInEffect> {
-    override fun StoreScope<SignInPhase, SignInEffect>.onStart() {
+    private typealias Scope = StoreScope<SignInPhase, SignInEffect>
+
+    override fun Scope.onStart() {
         whileIn(SignInPhase.Submitting::class) { submitting ->
             val result = safeCall { auth.signIn(submitting.email, submitting.password) }
             if (setState { answered(result) } == SignInPhase.SignedIn) emit(SignInEffect.SignedIn)
@@ -53,7 +55,7 @@ class SignInPhasesLogic(
         }
     }
 
-    override fun StoreScope<SignInPhase, SignInEffect>.onIntent(intent: SignInIntent) {
+    override fun Scope.onIntent(intent: SignInIntent) {
         when (val phase = state) {
             is SignInPhase.Editing -> when (intent) {
                 is SignInIntent.EditEmail -> setState { phase.copy(email = intent.value, error = null) }
@@ -73,7 +75,7 @@ class SignInPhasesLogic(
         }
     }
 
-    private fun StoreScope<SignInPhase, SignInEffect>.resend(phase: SignInPhase.EnteringCode) {
+    private fun Scope.resend(phase: SignInPhase.EnteringCode) {
         val next = phase.resent()
         if (next == phase) return
         setState { next }

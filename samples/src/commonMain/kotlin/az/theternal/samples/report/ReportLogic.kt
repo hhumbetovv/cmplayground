@@ -1,13 +1,10 @@
 package az.theternal.samples.report
 
-import androidx.lifecycle.ViewModel
 import az.theternal.mvi.Logic
-import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.StoreScope
 import az.theternal.mvi.launch
 import az.theternal.mvi.safeCall
 import az.theternal.mvi.setState
-import az.theternal.mvi.store
 import az.theternal.samples.data.PostRepository
 
 /**
@@ -21,7 +18,9 @@ class ReportLogic(
     private val postId: String,
     private val posts: PostRepository,
 ) : Logic<ReportState, ReportIntent, ReportEffect> {
-    override fun StoreScope<ReportState, ReportEffect>.onIntent(intent: ReportIntent) {
+    private typealias Scope = StoreScope<ReportState, ReportEffect>
+
+    override fun Scope.onIntent(intent: ReportIntent) {
         when (intent) {
             is ReportIntent.SelectReason -> setState { copy(reason = intent.reason) }
             is ReportIntent.EditComment -> setState { copy(comment = intent.text) }
@@ -29,7 +28,7 @@ class ReportLogic(
         }
     }
 
-    private fun StoreScope<ReportState, ReportEffect>.send() {
+    private fun Scope.send() {
         val reason = state.reason
         if (!state.canSend || reason == null) return
         val comment = state.comment.trim()
@@ -41,12 +40,4 @@ class ReportLogic(
             setState { copy(isSending = false) }
         }
     }
-}
-
-class ReportViewModel(
-    postId: String,
-    posts: PostRepository,
-) : ViewModel(),
-    StoreOwner<ReportState, ReportIntent, ReportEffect> {
-    override val store = store(ReportState(), ReportLogic(postId, posts))
 }

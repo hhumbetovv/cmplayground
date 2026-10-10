@@ -6,9 +6,16 @@ import az.theternal.mvi.mapState
 import az.theternal.samples.data.AuthRepository
 import az.theternal.samples.data.FakeAuthRepository
 import az.theternal.samples.data.SignInResult
+import az.theternal.samples.signin.level1.SignInLevel1Logic
 import az.theternal.samples.signin.level1.SignInLevel1State
+import az.theternal.samples.signin.level1.toUi
+import az.theternal.samples.signin.level2.SignInLevel2Logic
 import az.theternal.samples.signin.level2.SignInLevel2State
 import az.theternal.samples.signin.level3.SignInPhase
+import az.theternal.samples.signin.level3.SignInPhasesLogic
+import az.theternal.samples.signin.level3.signInLevel3Logic
+import az.theternal.samples.signin.level3.toUi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -28,9 +35,13 @@ import kotlin.test.assertTrue
  * refactoring with a safety net.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-abstract class SignInBehaviourTest<S>(
-    private val version: SignInVersion<S>,
-) {
+abstract class SignInBehaviourTest {
+    /** The implementation under test, hosted in [scope] and mapped onto what the screen draws. */
+    abstract fun store(
+        auth: AuthRepository,
+        scope: CoroutineScope,
+    ): Store<SignInUi, SignInIntent, SignInEffect>
+
     private class CountingAuth(
         private val real: AuthRepository = FakeAuthRepository(latency = LATENCY),
     ) : AuthRepository {
@@ -91,7 +102,7 @@ abstract class SignInBehaviourTest<S>(
 
     private fun screen(test: suspend TestScope.(Screen) -> Unit) = runTest {
         val auth = CountingAuth()
-        val store = StoreHost(version.initialState, backgroundScope, version.logic(auth)).mapState(version.toUi)
+        val store = store(auth, backgroundScope)
         val effects = mutableListOf<SignInEffect>()
         backgroundScope.launch { store.effects.toList(effects) }
         runCurrent()
@@ -203,10 +214,22 @@ abstract class SignInBehaviourTest<S>(
     }
 }
 
-class SignInLevel1Test : SignInBehaviourTest<SignInLevel1State>(SignInVersions.level1)
+class SignInLevel1Test : SignInBehaviourTest() {
+    override fun store(auth: AuthRepository, scope: CoroutineScope) =
+        StoreHost(SignInLevel1State(), scope, SignInLevel1Logic(auth)).mapState { it.toUi() }
+}
 
-class SignInLevel2Test : SignInBehaviourTest<SignInLevel2State>(SignInVersions.level2)
+class SignInLevel2Test : SignInBehaviourTest() {
+    override fun store(auth: AuthRepository, scope: CoroutineScope) =
+        StoreHost(SignInLevel2State(), scope, SignInLevel2Logic(auth)).mapState { it.toUi() }
+}
 
-class SignInLevel3Test : SignInBehaviourTest<SignInPhase>(SignInVersions.level3)
+class SignInLevel3Test : SignInBehaviourTest() {
+    override fun store(auth: AuthRepository, scope: CoroutineScope) =
+        StoreHost(SignInPhase.Editing(), scope, signInLevel3Logic(auth)).mapState { it.toUi() }
+}
 
-class SignInLevel3PlainTest : SignInBehaviourTest<SignInPhase>(SignInVersions.level3Plain)
+class SignInLevel3PlainTest : SignInBehaviourTest() {
+    override fun store(auth: AuthRepository, scope: CoroutineScope) =
+        StoreHost(SignInPhase.Editing(), scope, SignInPhasesLogic(auth)).mapState { it.toUi() }
+}

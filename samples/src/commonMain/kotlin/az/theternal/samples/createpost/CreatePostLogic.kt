@@ -1,15 +1,10 @@
 package az.theternal.samples.createpost
 
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import az.theternal.mvi.Logic
 import az.theternal.mvi.Slice
-import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.StoreScope
-import az.theternal.mvi.keeper
 import az.theternal.mvi.setState
 import az.theternal.mvi.slice
-import az.theternal.mvi.store
 import az.theternal.samples.createpost.body.BodyLogic
 import az.theternal.samples.createpost.poll.PollLogic
 import az.theternal.samples.createpost.publish.PublishEffect
@@ -19,7 +14,6 @@ import az.theternal.samples.createpost.tags.TagsEffect
 import az.theternal.samples.createpost.tags.TagsLogic
 import az.theternal.samples.createpost.tags.TagsState
 import az.theternal.samples.data.PostRepository
-import kotlinx.serialization.Serializable
 
 /**
  * Level 4: a screen made of slices, each at the level it needs — body and poll at 1, tags at 2, publishing
@@ -38,6 +32,8 @@ import kotlinx.serialization.Serializable
 class CreatePostLogic(
     posts: PostRepository,
 ) : Logic<CreatePostState, CreatePostIntent, CreatePostEffect> {
+    private typealias Scope = StoreScope<CreatePostState, CreatePostEffect>
+
     private val body = slice(BodyLogic(), get = CreatePostState::body, set = { copy(body = it) })
     private val poll = slice(PollLogic(), get = CreatePostState::poll, set = { copy(poll = it) })
     private val tags = Slice(
@@ -64,14 +60,14 @@ class CreatePostLogic(
         },
     )
 
-    override fun StoreScope<CreatePostState, CreatePostEffect>.onStart() {
+    override fun Scope.onStart() {
         body.attach(this)
         poll.attach(this)
         tags.attach(this)
         publish.attach(this)
     }
 
-    override fun StoreScope<CreatePostState, CreatePostEffect>.onIntent(intent: CreatePostIntent) {
+    override fun Scope.onIntent(intent: CreatePostIntent) {
         val editable = state.publish.isEditable
         when (intent) {
             is CreatePostIntent.Body -> if (editable) body.postIntent(intent.intent)
@@ -85,37 +81,4 @@ class CreatePostLogic(
             CreatePostIntent.Cancel -> publish.postIntent(PublishIntent.Cancel)
         }
     }
-}
-
-/**
- * What survives the process being killed: the draft. Suggestions are fetched again, and a publish in
- * flight is not resumed — its upload is gone with the process.
- */
-@Serializable
-data class SavedDraft(
-    val text: String,
-    val pollOn: Boolean,
-    val pollOptions: List<String>,
-    val tags: List<String>,
-)
-
-fun SavedStateHandle.draftKeeper() = keeper<CreatePostState, SavedDraft>(
-    key = "draft",
-    serializer = SavedDraft.serializer(),
-    save = { state -> SavedDraft(state.body.text, state.poll.isOn, state.poll.options, state.tags.selected) },
-    restore = { draft ->
-        copy(
-            body = body.copy(text = draft.text),
-            poll = poll.copy(isOn = draft.pollOn, options = draft.pollOptions),
-            tags = tags.copy(selected = draft.tags),
-        )
-    },
-)
-
-class CreatePostViewModel(
-    posts: PostRepository,
-    savedState: SavedStateHandle,
-) : ViewModel(),
-    StoreOwner<CreatePostState, CreatePostIntent, CreatePostEffect> {
-    override val store = store(CreatePostState(), CreatePostLogic(posts), keeper = savedState.draftKeeper())
 }

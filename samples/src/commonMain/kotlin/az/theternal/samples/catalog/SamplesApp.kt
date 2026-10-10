@@ -42,9 +42,10 @@ import az.theternal.samples.report.ReportViewModel
 import az.theternal.samples.search.SearchScreen
 import az.theternal.samples.search.SearchViewModel
 import az.theternal.samples.signin.SignInScreen
-import az.theternal.samples.signin.SignInVersion
-import az.theternal.samples.signin.SignInVersions
-import az.theternal.samples.signin.SignInViewModel
+import az.theternal.samples.signin.level1.SignInLevel1ViewModel
+import az.theternal.samples.signin.level2.SignInLevel2ViewModel
+import az.theternal.samples.signin.level3.SignInLevel3PlainViewModel
+import az.theternal.samples.signin.level3.SignInLevel3ViewModel
 
 private enum class Sample(
     val title: String,
@@ -119,10 +120,10 @@ private fun SampleScreen(
     when (sample) {
         Sample.Report -> ReportScreen(viewModel { ReportViewModel("p1", dependencies.posts) }.store, snackbar, onDone = close)
         Sample.Search -> SearchScreen(viewModel { SearchViewModel(dependencies.users) }.store, snackbar)
-        Sample.SignIn1 -> SignIn(SignInVersions.level1, dependencies, snackbar)
-        Sample.SignIn2 -> SignIn(SignInVersions.level2, dependencies, snackbar)
-        Sample.SignIn3 -> SignIn(SignInVersions.level3, dependencies, snackbar)
-        Sample.SignIn3Plain -> SignIn(SignInVersions.level3Plain, dependencies, snackbar)
+        Sample.SignIn1 -> SignInScreen(viewModel { SignInLevel1ViewModel(dependencies.auth) }.store, snackbar)
+        Sample.SignIn2 -> SignInScreen(viewModel { SignInLevel2ViewModel(dependencies.auth) }.store, snackbar)
+        Sample.SignIn3 -> SignInScreen(viewModel { SignInLevel3ViewModel(dependencies.auth) }.store, snackbar)
+        Sample.SignIn3Plain -> SignInScreen(viewModel { SignInLevel3PlainViewModel(dependencies.auth) }.store, snackbar)
         Sample.CreatePost -> CreatePostScreen(
             viewModel { CreatePostViewModel(dependencies.posts, savedState) }.store,
             snackbar,
@@ -130,15 +131,6 @@ private fun SampleScreen(
         )
         Sample.Feed -> FeedScreen(viewModel { FeedViewModel(dependencies.posts) }.store, dependencies.posts, snackbar)
     }
-}
-
-@Composable
-private fun <S> SignIn(
-    version: SignInVersion<S>,
-    dependencies: SampleDependencies,
-    snackbar: SnackbarHostState,
-) {
-    SignInScreen(viewModel { SignInViewModel(version, dependencies.auth) }.store, snackbar)
 }
 
 /**

@@ -1,13 +1,10 @@
 package az.theternal.samples.search
 
-import androidx.lifecycle.ViewModel
 import az.theternal.mvi.ActionLogic
 import az.theternal.mvi.Policy
-import az.theternal.mvi.StoreOwner
 import az.theternal.mvi.StoreScope
 import az.theternal.mvi.dataOrNull
 import az.theternal.mvi.safeCall
-import az.theternal.mvi.store
 import az.theternal.samples.data.UserRepository
 import kotlinx.coroutines.delay
 
@@ -25,7 +22,9 @@ import kotlinx.coroutines.delay
 class SearchLogic(
     private val users: UserRepository,
 ) : ActionLogic<SearchState, SearchIntent, SearchAction, SearchEffect>() {
-    override fun StoreScope<SearchState, SearchEffect>.toAction(intent: SearchIntent): SearchAction? {
+    private typealias Scope = StoreScope<SearchState, SearchEffect>
+
+    override fun Scope.toAction(intent: SearchIntent): SearchAction? {
         return when (intent) {
             is SearchIntent.EditQuery -> {
                 reduce(SearchPartial.Query(intent.text))
@@ -48,14 +47,14 @@ class SearchLogic(
         }
     }
 
-    override suspend fun StoreScope<SearchState, SearchEffect>.process(action: SearchAction) {
+    override suspend fun Scope.process(action: SearchAction) {
         when (action) {
             is SearchAction.Search -> search(action)
             is SearchAction.SetFollowing -> setFollowing(action)
         }
     }
 
-    private suspend fun StoreScope<SearchState, SearchEffect>.search(action: SearchAction.Search) {
+    private suspend fun Scope.search(action: SearchAction.Search) {
         if (action.query.isEmpty()) {
             reduce(SearchPartial.Cleared)
             return
@@ -65,7 +64,7 @@ class SearchLogic(
         reduce(SearchPartial.Results(safeCall { users.search(action.query) }))
     }
 
-    private suspend fun StoreScope<SearchState, SearchEffect>.setFollowing(action: SearchAction.SetFollowing) {
+    private suspend fun Scope.setFollowing(action: SearchAction.SetFollowing) {
         // Optimistic: shown at once, rolled back if the backend says no.
         reduce(SearchPartial.Following(action.user.id, action.following))
         safeCall { users.setFollowing(action.user.id, action.following) }
@@ -78,11 +77,4 @@ class SearchLogic(
     companion object {
         const val DEBOUNCE_MILLIS = 300L
     }
-}
-
-class SearchViewModel(
-    users: UserRepository,
-) : ViewModel(),
-    StoreOwner<SearchState, SearchIntent, SearchEffect> {
-    override val store = store(SearchState(), SearchLogic(users))
 }

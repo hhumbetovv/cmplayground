@@ -4,80 +4,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
-/**
- * In-memory backends with latency, so every sample shows its loading and its races. Each has one
- * deterministic way to fail, to show the error paths: the hints are on the screens.
- */
-class FakeAuthRepository(
-    private val latency: Long = 800,
-) : AuthRepository {
-    override suspend fun signIn(
-        email: String,
-        password: String,
-    ): SignInResult {
-        delay(latency)
-        return when {
-            password != PASSWORD -> SignInResult.WrongCredentials
-            email == PLAIN_ACCOUNT -> SignInResult.Success
-            email == TWO_FACTOR_ACCOUNT -> SignInResult.CodeRequired(challengeId = "challenge-1")
-            else -> SignInResult.WrongCredentials
-        }
-    }
-
-    override suspend fun verifyCode(
-        challengeId: String,
-        code: String,
-    ): Boolean {
-        delay(latency)
-        return code == CODE
-    }
-
-    override suspend fun resendCode(challengeId: String) {
-        delay(latency)
-    }
-
-    companion object {
-        const val PLAIN_ACCOUNT = "ada@example.com"
-        const val TWO_FACTOR_ACCOUNT = "alan@example.com"
-        const val PASSWORD = "password"
-        const val CODE = "123456"
-    }
-}
-
-class FakeUserRepository(
-    private val latency: Long = 600,
-) : UserRepository {
-    private val following = mutableSetOf("u2")
-    private val names = listOf(
-        "Ada Lovelace", "Alan Turing", "Grace Hopper", "Barbara Liskov", "Donald Knuth",
-        "Edsger Dijkstra", "Margaret Hamilton", "Ken Thompson", "Linus Torvalds", "Radia Perlman",
-    )
-
-    override suspend fun search(query: String): List<User> {
-        delay(latency)
-        if (query.equals(FAILING_QUERY, ignoreCase = true)) error("The search is down")
-        return names.withIndex()
-            .filter { (_, name) -> name.contains(query, ignoreCase = true) }
-            .map { (index, name) -> User(id = "u$index", name = name, isFollowing = "u$index" in following) }
-    }
-
-    override suspend fun setFollowing(
-        userId: String,
-        following: Boolean,
-    ) {
-        delay(latency)
-        if (userId == FAILING_USER) error("Cannot follow this user")
-        if (following) this.following += userId else this.following -= userId
-    }
-
-    companion object {
-        const val FAILING_QUERY = "error"
-
-        /** Ken Thompson: following him always fails, to show the rollback. */
-        const val FAILING_USER = "u7"
-    }
-}
-
 class FakePostRepository(
     private val latency: Long = 700,
 ) : PostRepository {
@@ -166,10 +92,3 @@ class FakePostRepository(
         private const val UPLOAD_STEPS = 5
     }
 }
-
-/** What the samples are built from; the playground has no DI. */
-class SampleDependencies(
-    val auth: AuthRepository = FakeAuthRepository(),
-    val users: UserRepository = FakeUserRepository(),
-    val posts: PostRepository = FakePostRepository(),
-)

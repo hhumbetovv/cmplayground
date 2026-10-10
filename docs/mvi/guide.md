@@ -69,13 +69,13 @@ The words you will meet later, all of them optional at the start:
 
 ## 2. Your first screen
 
-The report screen in `samples/report/` is a complete level 1 screen. Building it takes five files' worth of
-code in three files.
+The report screen in `samples/report/` is a complete level 1 screen. It is four files, one concern each.
 
 ```
 report/
   ReportContract.kt   State, Intent, Effect
-  ReportLogic.kt      the logic, and the ViewModel under it
+  ReportLogic.kt      the logic
+  ReportViewModel.kt  the ViewModel: one line
   ReportScreen.kt     the screen: a route that takes the store, and stateless content
 commonTest/…/report/
   ReportLogicTest.kt
@@ -340,9 +340,11 @@ You write the type arguments once per feature, and inference fills them in every
   arguments appear once, in `StoreOwner<…>`.
 - **Screen:** only the route takes `Store<S, I, E>`. The components below it take plain values and lambdas.
 - **Tests:** `storeTest(initial, logic) { }` infers the types.
-- **Logic:** the receiver `StoreScope<S, E>` repeats on every handler. When a file has many handlers, a
-  file-private alias is allowed: `private typealias Scope = StoreScope<SignInPhase, SignInEffect>`, then
-  `override fun Scope.onIntent(…)`.
+- **Logic:** the receiver `StoreScope<S, E>` repeats on every handler. Give each logic class a nested alias,
+  the first line of its body: `private typealias Scope = StoreScope<ReportState, ReportEffect>`, then
+  `override fun Scope.onIntent(…)` and `private fun Scope.send()`. It is nested, so one file can hold several
+  logics. The alias cannot be written in a generic base class (`ActionLogic<S, I, A, E>`), because a nested
+  alias does not see the outer type parameters. Only the concrete logic names its types.
 - **A slot whose `onEffect` closes the slot itself** needs its type written out, because a property that
   refers to itself cannot be inferred (see `FeedLogic`). This is a known cost.
 
@@ -384,16 +386,41 @@ storeTest(initial, logic) {
 
 ## 8. Names and files
 
+One file per concern, named after the main type in it. A feature is a folder, and a folder is a package.
+
+```
+report/                        a screen
+  ReportContract.kt            State, Intent, Effect (level 2 adds Action and Partial: SearchContract.kt)
+  ReportLogic.kt               the logic
+  ReportViewModel.kt           the ViewModel, one line
+  ReportScreen.kt              route + stateless content
+  ReportMappers.kt             only when the UI needs shapes of its own (toBodyUi())
+createpost/                    a screen made of slices
+  CreatePostContract.kt  CreatePostLogic.kt  CreatePostViewModel.kt  CreatePostScreen.kt
+  CreatePostKeeper.kt          what survives process death: the saved part and the keeper
+  body/  BodyContract.kt  BodyLogic.kt        a slice: a subpackage, with its own contract and logic
+  publish/  PublishContract.kt  PublishLogic.kt
+feed/                          a screen with a component
+  like/  LikeContract.kt  LikeLogic.kt  LikeViewModel.kt   a component ViewModel: its own subpackage
+data/                          models, and one file per repository and per fake
+```
+
 | Thing | Name | File |
 |---|---|---|
 | State, Intent, Effect | `ReportState`, `ReportIntent`, `ReportEffect` | `ReportContract.kt` |
 | Actions, partials (level 2) | `SearchAction`, `SearchPartial` | `SearchContract.kt` |
-| Phases (level 3) | `SignInPhase.Editing`, `SignInPhase.Submitting` | beside the logic |
+| Phases and events (level 3) | `SignInPhase.Editing`, `SignInEvent` | `SignInPhase.kt`, `SignInEvent.kt` |
+| Pure transitions (level 3) | `SignInPhase.Editing.submitted()` | `SignInLevel3Transitions.kt` |
 | Logic | `ReportLogic` | `ReportLogic.kt` |
-| ViewModel | `ReportViewModel` | `ReportLogic.kt`, under the logic |
+| ViewModel | `ReportViewModel` | `ReportViewModel.kt` |
 | Screen | `ReportScreen` (route) and `ReportContent` (stateless) | `ReportScreen.kt` |
 | Mappers to component state | `toBodyUi()` | `CreatePostMappers.kt` |
-| Slices | a subpackage each: `createpost/body/`, `createpost/poll/` | `Body.kt` (contract and logic together while small) |
+| A mapper from the logic's state to the screen's (`mapState`) | `SignInLevel1State.toUi()` | `SignInLevel1Mapper.kt` |
+| Slices | a subpackage each: `createpost/body/`, `createpost/poll/` | `BodyContract.kt`, `BodyLogic.kt` |
+| Tests | `ReportLogicTest` | `commonTest`, the same package and folder |
+
+A contract and a logic that share a file are allowed only in a slice that is a few lines, and they split
+the day either one grows. A ViewModel never shares a file with the logic: that is what keeps it one line.
 
 Name intents after what the user did (`EditQuery`), actions after what to do (`Search`), partials after the
 change (`Loading`, `Results`), and phases after the state the screen is in (`Verifying`).
