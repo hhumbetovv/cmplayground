@@ -21,6 +21,7 @@ Contents:
 9. [Review checklist](#9-review-checklist)
 10. [Common mistakes](#10-common-mistakes)
 11. [Internal state: what the logic keeps and the screen does not draw](#11-internal-state)
+12. [Dependency injection and the size of a ViewModel](#12-dependency-injection-and-the-size-of-a-viewmodel)
 
 Cases that come up in real screens (pagination, optimistic updates, forms, shared state, results from other
 screens, and more) are in the [cookbook](cookbook.md).
@@ -579,3 +580,122 @@ about a field of the state, and cannot see a `private var`.
 | Cache decoded or parsed data | The repository or a use case |
 | Run work only while the screen is on | `observeWhileSubscribed` / `whileSubscribed` |
 | Hold something for the screen's whole life that is not data | It is a dependency: the constructor |
+
+## 12. Dependency injection and the size of a ViewModel
+
+The architecture needs no DI framework, and works with any. The reason is rule 12: a logic gets everything
+through its constructor and knows nothing of Android, Compose or a service locator. A DI framework then
+sees an ordinary class. Dagger/Hilt (Android only), Metro, kotlin-inject and Koin all build it, and a test
+builds it by hand with fakes.
+
+### 12.1 Four rules
+
+1. **A logic is unscoped.** Every injection gives a new instance. A logic belongs to one host (a ViewModel,
+   a slice, a slot) because it may keep that host's bookkeeping, so `@Singleton` or any shared scope on a
+   logic is a bug. Shared things (repositories, sessions) are scoped; logics are not.
+2. **Runtime arguments are assisted.** `ReportLogic(postId, posts)` takes `posts` from the graph and `postId`
+   from the caller. The logic declares a nested factory, and a DI framework implements it:
+
+   ```kotlin
+   class ReportLogic(private val postId: String, private val posts: PostRepository) : Logic<…> {
+       fun interface Factory { fun create(postId: String): ReportLogic }
+   }
+   ```
+
+   With Metro this is `@AssistedInject` on the class, `@Assisted` on `postId`, and `@AssistedFactory` on
+   `Factory`. Metro matches assisted parameters by name. Dagger and Hilt have the same three annotations.
+   Without a framework, `ReportLogic.Factory { id -> ReportLogic(id, posts) }` is the whole factory.
+3. **A parent gets its children's logics from the constructor, and never builds them.** `CreatePostLogic`
+   takes `BodyLogic`, `PollLogic`, `TagsLogic` and the publish logic. `FeedLogic` takes a
+   `ReportLogic.Factory` for its sheet, since each opening needs a new logic for another post. A parent that
+   writes `TagsLogic(posts)` inside itself cannot be given a different `TagsLogic`, and needs `posts` for
+   nothing it does itself. Beside such a logic, a function of the same name builds the usual set for
+   screens made by hand and for tests (`CreatePostLogic(posts)`, `FeedLogic(posts)`).
+4. **The logic never sees the DI framework.** No `@Inject`-only types, no `Provider<T>` in its logic code, no
+   graph. If it needs something late or repeatedly, it takes a function type or a factory (`() -> T`).
+
+### 12.2 What the ViewModel takes
+
+There are two shapes. Both obey rule 14 (a ViewModel has one line of body):
+
+| Shape | ViewModel | When |
+|---|---|---|
+| **Takes its dependencies** | `ReportViewModel(postId, posts)` builds `ReportLogic(postId, posts)` | No DI, or a small screen. This is what the samples do |
+| **Takes the logic** | `ReportViewModel(logic: ReportLogic)`, then `store(ReportState(), logic)` | With DI. The framework builds the logic, so the ViewModel never learns its dependencies |
+
+The second is the thin one, and it is what to use with a framework:
+
+```kotlin
+class ReportViewModel(logic: ReportLogic) : ViewModel(), StoreOwner<ReportState, ReportIntent, ReportEffect> {
+    override val store = store(ReportState(), logic)
+}
+```
+
+Whether the ViewModel itself is injected, and how a Compose screen asks for it, is the framework's own
+ViewModel integration (Hilt's `hiltViewModel()`, Metro's `metrox-viewmodel`). That part is not specific to
+this architecture, so check the framework's current documentation for its exact setup.
+
+### 12.3 The biggest ViewModel there can be
+
+A ViewModel never holds behaviour, so its size is only what it needs to *build* the store. The most it can
+ever have is five things:
+
+| Part | Where it comes from |
+|---|---|
+| 1. The logic | injected (or built from injected dependencies) |
+| 2. The initial state | a default (`ReportState()`), or built from an argument (`LikeState(post.isLiked, post.likes)`) |
+| 3. A keeper | built from the `SavedStateHandle` |
+| 4. `StoreSettings` | injected once for the whole app |
+| 5. `mapState` | when the logic's state is not what the screen draws ([section 11](#11-internal-state)) |
+
+All five at once, written out:
+
+```kotlin
+class CheckoutViewModel(
+    logic: CheckoutLogic,                  // 1
+    savedState: SavedStateHandle,          // 3
+    settings: StoreSettings,               // 4
+) : ViewModel(), StoreOwner<CheckoutUi, CheckoutIntent, CheckoutEffect> {
+    override val store = store(
+        initialState = CheckoutState(),    // 2
+        logic = logic,
+        settings = settings,               // 4
+        keeper = savedState.draftKeeper(), // 3
+    ).mapState { it.toUi() }               // 5
+}
+```
+
+That is the ceiling: one expression, with no function, no `init`, and no second field. `CreatePostViewModel`
+shows parts 1 to 3.
+
+If every ViewModel repeats `settings`, the app's own base class holds it once, and the ViewModel goes back
+to naming only what is special to it:
+
+```kotlin
+abstract class AppViewModel(private val settings: StoreSettings) : ViewModel() {
+    protected fun <S, I, E> store(initial: S, logic: Logic<S, I, E>, keeper: StateKeeper<S>? = null) =
+        (this as ViewModel).store(initial, logic, settings, keeper)
+}
+```
+
+`StoreOwner` is an interface, so this base class costs nothing: a ViewModel that does not want it
+does not extend it.
+
+If a ViewModel has grown past this (a function, a second `StateFlow`, a `launch`, an `init` that does work),
+that code is behaviour. Move it into the logic as an intent, an `onStart`, or a use case. It never stays in
+the ViewModel.
+
+### 12.4 Components per list item
+
+A component ViewModel (`LikeViewModel(post, posts)`) is built per item and keyed by the item's id. Its
+runtime argument (`post`) is assisted in exactly the same way: the item's composable asks the framework for
+the ViewModel with an assisted factory, and the item's id is the key. The logic inside is `LikeLogic(postId, posts)`,
+which a test builds without the ViewModel.
+
+### 12.5 What to check in review
+
+- [ ] No `@Singleton` (or other shared scope) on a logic.
+- [ ] A runtime argument is assisted, never read from a global or a service locator.
+- [ ] A parent logic does not write `ChildLogic(...)`: the constructor takes it, or takes a factory.
+- [ ] No DI types appear in a logic's code.
+- [ ] A ViewModel has one expression: `store(...)`, plus at most `mapState`.

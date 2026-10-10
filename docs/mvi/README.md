@@ -5,7 +5,7 @@ only when it crosses a measurable line. The screen never sees the move.
 
 | Read | When |
 |---|---|
-| [guide.md](guide.md) | You are writing or reviewing a screen. Start here: the model, your first screen step by step, choosing a level, the rules, internal state, the review checklist |
+| [guide.md](guide.md) | You are writing or reviewing a screen. Start here: the model, your first screen step by step, choosing a level, the rules, internal state, dependency injection, the review checklist |
 | [cookbook.md](cookbook.md) | You have a real case: pagination, optimistic update, a form, a multi-step flow, shared state, results from other screens, timers, platform calls, errors, list items, process death, test recipes |
 | [migrations.md](migrations.md) | A screen crossed a line, or crossed one back. When to move between levels and hosts, in both directions, and the steps for each move |
 | [reference.md](reference.md) | You need the details: how the store runs, the pipeline, slices and slots, item stores, process death, testing, the state-machine library, and what was taken from Orbit and Decompose and why |

@@ -9,6 +9,7 @@ import az.theternal.samples.createpost.body.BodyLogic
 import az.theternal.samples.createpost.poll.PollLogic
 import az.theternal.samples.createpost.publish.PublishEffect
 import az.theternal.samples.createpost.publish.PublishIntent
+import az.theternal.samples.createpost.publish.PublishPhase
 import az.theternal.samples.createpost.publish.publishLogic
 import az.theternal.samples.createpost.tags.TagsEffect
 import az.theternal.samples.createpost.tags.TagsLogic
@@ -26,18 +27,24 @@ import az.theternal.samples.data.PostRepository
  * message for the screen, and on publishing it also clears the draft, so that a saved copy is not
  * offered again.
  *
+ * The slices' logics come in through the constructor, so a DI framework builds them (each one new: a logic
+ * belongs to one host), and a test can replace any of them. The function below it builds the usual set.
+ *
  * Act2Act's CreatePostViewModel holds all of this in one 600-line class; here every slice is tested on its
  * own, and any of them can be hosted elsewhere unchanged.
  */
 class CreatePostLogic(
-    posts: PostRepository,
+    bodyLogic: BodyLogic,
+    pollLogic: PollLogic,
+    tagsLogic: TagsLogic,
+    publishLogic: Logic<PublishPhase, PublishIntent, PublishEffect>,
 ) : Logic<CreatePostState, CreatePostIntent, CreatePostEffect> {
     private typealias Scope = StoreScope<CreatePostState, CreatePostEffect>
 
-    private val body = slice(BodyLogic(), get = CreatePostState::body, set = { copy(body = it) })
-    private val poll = slice(PollLogic(), get = CreatePostState::poll, set = { copy(poll = it) })
+    private val body = slice(bodyLogic, get = CreatePostState::body, set = { copy(body = it) })
+    private val poll = slice(pollLogic, get = CreatePostState::poll, set = { copy(poll = it) })
     private val tags = Slice(
-        TagsLogic(posts),
+        tagsLogic,
         get = CreatePostState::tags,
         set = { copy(tags = it) },
         onEffect = { effect ->
@@ -47,7 +54,7 @@ class CreatePostLogic(
         },
     )
     private val publish = Slice(
-        publishLogic(posts),
+        publishLogic,
         get = CreatePostState::publish,
         set = { copy(publish = it) },
         onEffect = { effect ->
@@ -81,4 +88,9 @@ class CreatePostLogic(
             CreatePostIntent.Cancel -> publish.postIntent(PublishIntent.Cancel)
         }
     }
+}
+
+/** The usual set of slices, for a screen built by hand and for tests. */
+fun CreatePostLogic(posts: PostRepository): CreatePostLogic {
+    return CreatePostLogic(BodyLogic(), PollLogic(), TagsLogic(posts), publishLogic(posts))
 }

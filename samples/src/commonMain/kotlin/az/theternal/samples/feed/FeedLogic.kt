@@ -25,13 +25,14 @@ import az.theternal.samples.report.ReportState
  */
 class FeedLogic(
     private val repository: PostRepository,
+    reportLogic: ReportLogic.Factory,
 ) : ActionLogic<FeedState, FeedIntent, Unit, FeedEffect>() {
     private typealias Scope = StoreScope<FeedState, FeedEffect>
 
     private val report: Slot<FeedState, FeedEffect, String, ReportState, ReportIntent, ReportEffect> = Slot(
         get = FeedState::report,
         set = { copy(report = it) },
-        create = { postId -> Child(ReportState(), ReportLogic(postId, repository)) },
+        create = { postId -> Child(ReportState(), reportLogic.create(postId)) },
         onEffect = { effect ->
             when (effect) {
                 ReportEffect.Sent -> {
@@ -65,4 +66,9 @@ class FeedLogic(
         val result = safeCall { repository.feed() }
         setState { copy(posts = result.toContentState()) }
     }
+}
+
+/** The usual report sheet, for a screen built by hand and for tests. */
+fun FeedLogic(repository: PostRepository): FeedLogic {
+    return FeedLogic(repository) { postId -> ReportLogic(postId, repository) }
 }

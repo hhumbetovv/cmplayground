@@ -20,6 +20,11 @@ class ReportLogic(
 ) : Logic<ReportState, ReportIntent, ReportEffect> {
     private typealias Scope = StoreScope<ReportState, ReportEffect>
 
+    /** What a parent that hosts the report in a sheet is given, so that it needs neither `postId` nor `posts`. */
+    fun interface Factory {
+        fun create(postId: String): ReportLogic
+    }
+
     override fun Scope.onIntent(intent: ReportIntent) {
         when (intent) {
             is ReportIntent.SelectReason -> setState { copy(reason = intent.reason) }
