@@ -96,12 +96,15 @@ data class ReportState(
 
 sealed interface ReportIntent : ViewIntent {
     data class SelectReason(val reason: ReportReason) : ReportIntent
+
     data class EditComment(val text: String) : ReportIntent
+
     data object Send : ReportIntent
 }
 
 sealed interface ReportEffect : ViewEffect {
     data object Sent : ReportEffect
+
     data class Failed(val message: String) : ReportEffect
 }
 ```

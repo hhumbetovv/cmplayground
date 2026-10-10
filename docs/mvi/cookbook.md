@@ -43,6 +43,7 @@ Internal state (cursors, attempts, ids the screen does not draw) is [guide secti
 
 ```kotlin
 data class ProfileState(val profile: ContentState<Profile> = ContentState.Idle) : ViewState
+
 sealed interface ProfileIntent : ViewIntent { data object Retry : ProfileIntent }
 
 class ProfileLogic(private val userId: String, private val users: UserRepository) :
@@ -112,6 +113,7 @@ data class FeedState(
 
 sealed interface FeedAction {
     data object Refresh : FeedAction
+
     data class LoadMore(val cursor: String) : FeedAction   // the cursor is gathered from the state
 }
 ```
