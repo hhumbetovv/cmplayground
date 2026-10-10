@@ -4,8 +4,8 @@ import az.theternal.samples.data.SignInResult
 import az.theternal.samples.signin.SignInMessages
 import az.theternal.samples.signin.SignInRules
 
-// The transitions, as pure functions. The machine in SignInLevel3Logic and the plain logic in SignInPhasesLogic wire
-// the same ones: what changes between them is how a phase's work is started and stopped, not the rules.
+// The transitions, as pure functions: the rules of the screen, with no coroutines in them. SignInLevel3Logic wires
+// them to intents and starts a phase's work when the screen enters it.
 
 internal fun SignInPhase.Editing.submitted(): SignInPhase {
     return if (email.isBlank() || password.isEmpty()) {

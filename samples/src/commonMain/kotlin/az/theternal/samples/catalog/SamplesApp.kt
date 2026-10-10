@@ -44,7 +44,6 @@ import az.theternal.samples.search.SearchViewModel
 import az.theternal.samples.signin.SignInScreen
 import az.theternal.samples.signin.level1.SignInLevel1ViewModel
 import az.theternal.samples.signin.level2.SignInLevel2ViewModel
-import az.theternal.samples.signin.level3.SignInLevel3PlainViewModel
 import az.theternal.samples.signin.level3.SignInLevel3ViewModel
 
 private enum class Sample(
@@ -55,8 +54,7 @@ private enum class Sample(
     Search("Level 2 · Search people", "Actions under policies: latest search, latest follow per user"),
     SignIn1("Migration · Sign in at level 1", "Flags, guards and hand-kept jobs — past its limit"),
     SignIn2("Migration · Sign in at level 2", "The same state, concurrency moved into policies"),
-    SignIn3("Migration · Sign in at level 3", "Phases and transitions in a state-machine library"),
-    SignIn3Plain("Migration · Sign in at level 3, no library", "The same phases; work bound with whileIn and runOn"),
+    SignIn3("Migration · Sign in at level 3", "Phases and transitions; work bound with whileIn and runOn"),
     CreatePost("Level 4 · Create a post", "Four slices at three levels; the draft survives process death"),
     Feed("Component ViewModels · Feed", "A ViewModel per card, live while on screen; a report sheet as a slot"),
 }
@@ -123,7 +121,6 @@ private fun SampleScreen(
         Sample.SignIn1 -> SignInScreen(viewModel { SignInLevel1ViewModel(dependencies.auth) }.store, snackbar)
         Sample.SignIn2 -> SignInScreen(viewModel { SignInLevel2ViewModel(dependencies.auth) }.store, snackbar)
         Sample.SignIn3 -> SignInScreen(viewModel { SignInLevel3ViewModel(dependencies.auth) }.store, snackbar)
-        Sample.SignIn3Plain -> SignInScreen(viewModel { SignInLevel3PlainViewModel(dependencies.auth) }.store, snackbar)
         Sample.CreatePost -> CreatePostScreen(
             viewModel { CreatePostViewModel(dependencies.posts, savedState) }.store,
             snackbar,

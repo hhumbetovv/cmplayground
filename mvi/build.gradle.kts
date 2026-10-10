@@ -21,13 +21,11 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // The public API is made of their types: StateFlow, ViewModel, SavedStateHandle, KSerializer,
-            // StateMachine.
+            // The public API is made of their types: StateFlow, ViewModel, SavedStateHandle, KSerializer.
             api(libs.kotlinx.coroutines.core)
             api(libs.androidx.lifecycle.viewmodel)
             api(libs.androidx.lifecycle.viewmodelSavedstate)
             api(libs.kotlinx.serialization.core)
-            api(libs.statemachine.core)
 
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.compose.runtime)

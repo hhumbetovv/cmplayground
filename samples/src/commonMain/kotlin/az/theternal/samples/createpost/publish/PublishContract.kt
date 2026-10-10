@@ -25,6 +25,8 @@ sealed interface PublishPhase {
     ) : PublishPhase
 
     val isEditable: Boolean get() = this is Idle || this is Failed
+
+    val isBusy: Boolean get() = this is Uploading || this is Publishing
 }
 
 sealed interface PublishIntent {
@@ -36,26 +38,6 @@ sealed interface PublishIntent {
     data object Retry : PublishIntent
 
     data object Cancel : PublishIntent
-}
-
-sealed interface PublishEvent {
-    data class Submit(
-        val draft: PostDraft,
-    ) : PublishEvent
-
-    data object Retry : PublishEvent
-
-    data object Cancel : PublishEvent
-
-    data class Progress(
-        val value: Float,
-    ) : PublishEvent
-
-    data object Uploaded : PublishEvent
-
-    data class Answered(
-        val result: Result<String>,
-    ) : PublishEvent
 }
 
 sealed interface PublishEffect {

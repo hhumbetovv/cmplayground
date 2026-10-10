@@ -12,8 +12,7 @@ import az.theternal.samples.signin.level1.toUi
 import az.theternal.samples.signin.level2.SignInLevel2Logic
 import az.theternal.samples.signin.level2.SignInLevel2State
 import az.theternal.samples.signin.level3.SignInPhase
-import az.theternal.samples.signin.level3.SignInPhasesLogic
-import az.theternal.samples.signin.level3.signInLevel3Logic
+import az.theternal.samples.signin.level3.SignInLevel3Logic
 import az.theternal.samples.signin.level3.toUi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,8 +28,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * One behaviour, four implementations. Every test runs against level 1, level 2, level 3 with the
- * state-machine library and level 3 without it, and asserts only on what the screen draws ([SignInUi]),
+ * One behaviour, three implementations. Every test runs against level 1, level 2 and level 3, and asserts only on what the screen draws ([SignInUi]),
  * the effects, and the requests made — which is what makes moving a screen from one level to another a
  * refactoring with a safety net.
  */
@@ -226,10 +224,5 @@ class SignInLevel2Test : SignInBehaviourTest() {
 
 class SignInLevel3Test : SignInBehaviourTest() {
     override fun store(auth: AuthRepository, scope: CoroutineScope) =
-        StoreHost(SignInPhase.Editing(), scope, signInLevel3Logic(auth)).mapState { it.toUi() }
-}
-
-class SignInLevel3PlainTest : SignInBehaviourTest() {
-    override fun store(auth: AuthRepository, scope: CoroutineScope) =
-        StoreHost(SignInPhase.Editing(), scope, SignInPhasesLogic(auth)).mapState { it.toUi() }
+        StoreHost(SignInPhase.Editing(), scope, SignInLevel3Logic(auth)).mapState { it.toUi() }
 }

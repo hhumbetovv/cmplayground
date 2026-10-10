@@ -10,7 +10,7 @@ import az.theternal.samples.createpost.poll.PollLogic
 import az.theternal.samples.createpost.publish.PublishEffect
 import az.theternal.samples.createpost.publish.PublishIntent
 import az.theternal.samples.createpost.publish.PublishPhase
-import az.theternal.samples.createpost.publish.publishLogic
+import az.theternal.samples.createpost.publish.PublishLogic
 import az.theternal.samples.createpost.tags.TagsEffect
 import az.theternal.samples.createpost.tags.TagsLogic
 import az.theternal.samples.createpost.tags.TagsState
@@ -92,5 +92,5 @@ class CreatePostLogic(
 
 /** The usual set of slices, for a screen built by hand and for tests. */
 fun CreatePostLogic(posts: PostRepository): CreatePostLogic {
-    return CreatePostLogic(BodyLogic(), PollLogic(), TagsLogic(posts), publishLogic(posts))
+    return CreatePostLogic(BodyLogic(), PollLogic(), TagsLogic(posts), PublishLogic(posts))
 }
