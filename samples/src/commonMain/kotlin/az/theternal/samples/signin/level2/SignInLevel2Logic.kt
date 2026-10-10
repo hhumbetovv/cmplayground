@@ -74,9 +74,9 @@ class SignInLevel2Logic(
     override fun policy(action: SignInLevel2Action): Policy {
         return when (action) {
             is SignInLevel2Action.Countdown -> Policy.Latest(action.kind)
-            is SignInLevel2Action.SignIn -> Policy.Drop("sign in")
-            is SignInLevel2Action.Verify -> Policy.Drop("verify")
-            is SignInLevel2Action.Resend -> Policy.Drop("resend")
+            is SignInLevel2Action.SignIn -> Policy.Ignore("sign in")
+            is SignInLevel2Action.Verify -> Policy.Ignore("verify")
+            is SignInLevel2Action.Resend -> Policy.Ignore("resend")
         }
     }
 

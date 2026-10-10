@@ -19,7 +19,7 @@ sealed interface Policy {
     ) : Policy
 
     /** The new one is ignored while one runs. Submit, pay, pull to refresh. */
-    data class Drop(
+    data class Ignore(
         val key: Any,
     ) : Policy
 
@@ -80,7 +80,7 @@ internal class ActionRunner {
                 running[policy.key]?.cancel()
                 track(policy.key, scope.launch { block() })
             }
-            is Policy.Drop -> if (running[policy.key]?.isActive != true) {
+            is Policy.Ignore -> if (running[policy.key]?.isActive != true) {
                 track(policy.key, scope.launch { block() })
             }
             is Policy.Queue -> {

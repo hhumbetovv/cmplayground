@@ -53,7 +53,7 @@ class SlotTest {
         private val rename: Slot<Screen, String, String, String, String, String> = Slot(
             get = Screen::rename,
             set = { copy(rename = it) },
-            create = { title -> Child(title, Rename(saved)) },
+            create = { title -> Hosted(title, Rename(saved)) },
             // The dialog's output: the parent takes the new title, closes the dialog, and tells the screen.
             onEffect = { name ->
                 setState { copy(title = name) }

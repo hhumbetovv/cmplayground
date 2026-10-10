@@ -32,7 +32,7 @@ import az.theternal.mvi.ItemScope
 import az.theternal.mvi.Store
 import az.theternal.mvi.collectAsState
 import az.theternal.mvi.dataOrNull
-import az.theternal.mvi.rememberItemStores
+import az.theternal.mvi.rememberItemViewModels
 import az.theternal.mvi.select
 import az.theternal.samples.data.Post
 import az.theternal.samples.data.PostRepository
@@ -59,7 +59,7 @@ fun FeedScreen(
     val feed by state.select { it.posts }
     val items = feed.dataOrNull().orEmpty()
     // One ViewModel store per post: a card's like lives while the post is in the feed.
-    val itemStores = rememberItemStores(keys = items.map(Post::id))
+    val cards = rememberItemViewModels(keys = items.map(Post::id))
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -80,7 +80,7 @@ fun FeedScreen(
             }
         }
         items(items, key = Post::id) { post ->
-            ItemScope(itemStores, post.id) {
+            ItemScope(cards, post.id) {
                 PostCard(
                     post = post,
                     posts = posts,

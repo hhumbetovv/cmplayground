@@ -19,7 +19,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class ItemStoresTest {
+class ItemViewModelsTest {
     /** A component ViewModel whose one intent starts work that ends when [finish] is completed. */
     private class Card(
         val finish: CompletableDeferred<Unit>,
@@ -43,7 +43,7 @@ class ItemStoresTest {
     }
 
     private fun item(
-        stores: ItemStores,
+        stores: ItemViewModels,
         key: String,
         finish: CompletableDeferred<Unit>,
     ): Card {
@@ -65,7 +65,7 @@ class ItemStoresTest {
 
     @Test
     fun anItemWithNothingRunningIsLetGoWhenItLeavesTheScreen() = withMain {
-        val stores = ItemStores()
+        val stores = ItemViewModels()
         stores.attach("a")
         val card = item(stores, "a", CompletableDeferred())
         runCurrent()
@@ -78,7 +78,7 @@ class ItemStoresTest {
 
     @Test
     fun anItemWithWorkInFlightLivesUntilTheWorkEnds() = withMain {
-        val stores = ItemStores()
+        val stores = ItemViewModels()
         val finish = CompletableDeferred<Unit>()
         stores.attach("a")
         val card = item(stores, "a", finish)
@@ -97,7 +97,7 @@ class ItemStoresTest {
 
     @Test
     fun anItemThatComesBackWhileBusyKeepsItsViewModel() = withMain {
-        val stores = ItemStores()
+        val stores = ItemViewModels()
         val finish = CompletableDeferred<Unit>()
         stores.attach("a")
         val card = item(stores, "a", finish)
@@ -115,7 +115,7 @@ class ItemStoresTest {
 
     @Test
     fun anItemThatLeavesTheListIsClearedAtOnceEvenWhileBusy() = withMain {
-        val stores = ItemStores()
+        val stores = ItemViewModels()
         stores.attach("a")
         val card = item(stores, "a", CompletableDeferred())
         card.store.postIntent(Unit)
@@ -127,7 +127,7 @@ class ItemStoresTest {
 
     @Test
     fun aBinderIsNotWork() = withMain {
-        val stores = ItemStores()
+        val stores = ItemViewModels()
         stores.attach("a")
         val card = item(stores, "a", CompletableDeferred())
         runCurrent()

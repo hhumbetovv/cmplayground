@@ -1,7 +1,7 @@
 package az.theternal.samples.feed
 
 import az.theternal.mvi.ActionLogic
-import az.theternal.mvi.Child
+import az.theternal.mvi.Hosted
 import az.theternal.mvi.Policy
 import az.theternal.mvi.Slot
 import az.theternal.mvi.StoreScope
@@ -16,7 +16,7 @@ import az.theternal.samples.report.ReportLogic
 import az.theternal.samples.report.ReportState
 
 /**
- * Level 2: one action, loading, under [Policy.Drop] — a pull to refresh while one runs is ignored. It knows
+ * Level 2: one action, loading, under [Policy.Ignore] — a pull to refresh while one runs is ignored. It knows
  * nothing about likes: each card's like is its own component ([LikeLogic]).
  *
  * The report sheet is a [Slot]: the report screen's own logic ([ReportLogic]), opened for one post and
@@ -32,7 +32,7 @@ class FeedLogic(
     private val report: Slot<FeedState, FeedEffect, String, ReportState, ReportIntent, ReportEffect> = Slot(
         get = FeedState::report,
         set = { copy(report = it) },
-        create = { postId -> Child(ReportState(), reportLogic.create(postId)) },
+        create = { postId -> Hosted(ReportState(), reportLogic.create(postId)) },
         onEffect = { effect ->
             when (effect) {
                 ReportEffect.Sent -> {
@@ -59,7 +59,7 @@ class FeedLogic(
         return null
     }
 
-    override fun policy(action: Unit) = Policy.Drop("refresh")
+    override fun policy(action: Unit) = Policy.Ignore("refresh")
 
     override suspend fun Scope.process(action: Unit) {
         setState { copy(posts = posts.reload()) }

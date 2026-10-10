@@ -1,7 +1,7 @@
 package az.theternal.mvi
 
-/** A child to host: the state it starts with and its logic. */
-class Child<S, I, E>(
+/** What a slot hosts: the state it starts with and its logic. */
+class Hosted<S, I, E>(
     val initialState: S,
     val logic: Logic<S, I, E>,
 )
@@ -20,7 +20,7 @@ class Child<S, I, E>(
 class Slot<PS, PE, C, S : Any, I, E>(
     private val get: (PS) -> S?,
     private val set: PS.(S?) -> PS,
-    private val create: (config: C) -> Child<S, I, E>,
+    private val create: (config: C) -> Hosted<S, I, E>,
     private val onEffect: StoreScope<PS, PE>.(E) -> Unit,
 ) {
     private var parent: StoreScope<PS, PE>? = null

@@ -81,7 +81,7 @@ inline fun <T, R> State<T>.select(
  *
  * An item that leaves the list is cleared at once, working or not.
  */
-class ItemStores : ViewModel() {
+class ItemViewModels : ViewModel() {
     private class Entry(
         val owner: ViewModelStoreOwner,
     ) {
@@ -128,7 +128,7 @@ class ItemStores : ViewModel() {
         return store.keys().mapNotNull { name -> (store[name] as? StoreOwner<*, *, *>)?.store?.isBusy }
     }
 
-    /** Clears the stores of the items that are no longer in [keys], busy or not. */
+    /** Clears the ViewModels of the items that are no longer in [keys], busy or not. */
     fun retain(keys: Set<Any>) {
         (entries.keys - keys).forEach(::clear)
     }
@@ -144,28 +144,28 @@ class ItemStores : ViewModel() {
     }
 }
 
-/** The [ItemStores] of a list whose items are [keys], kept in the screen's ViewModel store. */
+/** The [ItemViewModels] of a list whose items are [keys], kept in the screen's ViewModel store. */
 @Composable
-fun rememberItemStores(
+fun rememberItemViewModels(
     keys: List<Any>,
     name: String = "items",
-): ItemStores {
-    val stores = viewModel(key = "ItemStores:$name") { ItemStores() }
+): ItemViewModels {
+    val items = viewModel(key = "ItemViewModels:$name") { ItemViewModels() }
     val keySet = remember(keys) { keys.toSet() }
-    SideEffect { stores.retain(keySet) }
-    return stores
+    SideEffect { items.retain(keySet) }
+    return items
 }
 
 /** [content] with the item's own ViewModel store: `viewModel { … }` inside it is the item's. */
 @Composable
 fun ItemScope(
-    stores: ItemStores,
+    items: ItemViewModels,
     key: Any,
     content: @Composable () -> Unit,
 ) {
-    DisposableEffect(stores, key) {
-        stores.attach(key)
-        onDispose { stores.detach(key) }
+    DisposableEffect(items, key) {
+        items.attach(key)
+        onDispose { items.detach(key) }
     }
-    CompositionLocalProvider(LocalViewModelStoreOwner provides stores.owner(key), content = content)
+    CompositionLocalProvider(LocalViewModelStoreOwner provides items.owner(key), content = content)
 }

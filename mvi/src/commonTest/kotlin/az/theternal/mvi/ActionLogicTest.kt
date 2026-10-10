@@ -47,7 +47,7 @@ class ActionLogicTest {
 
     @Test
     fun dropIgnoresTheNewOneWhileOneRuns() {
-        assertEquals(listOf("slow"), runPolicy(Policy.Drop("k")))
+        assertEquals(listOf("slow"), runPolicy(Policy.Ignore("k")))
     }
 
     @Test
@@ -57,7 +57,7 @@ class ActionLogicTest {
 
     @Test
     fun dropAcceptsAgainOnceTheRunningOneIsDone() = runTest {
-        val store = StoreHost(emptyList(), backgroundScope, Logging(Policy.Drop("k")))
+        val store = StoreHost(emptyList(), backgroundScope, Logging(Policy.Ignore("k")))
         store.postIntent("first" to 100L)
         advanceTimeBy(1_000)
         store.postIntent("second" to 100L)
